@@ -1,6 +1,7 @@
 import sys
 from typing import Any
 import re
+import io
 
 from PyQt6.QtGui import QIcon, QAction, QColor
 from PyQt6.QtWidgets import QMainWindow, QApplication, QTableView, QFileDialog
@@ -10,6 +11,8 @@ import pathlib
 import pandas as pd
 from typing import AnyStr
 from pypdf import PdfReader
+
+from openpyxl import load_workbook
 
 FILTERS = [
     "Hwp (*.hwp *.hwpx *.odt )",
@@ -82,19 +85,22 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Hwp, Hwpx, Odt, Xls, Xlsx to Postmoa Converter")
+        self.setWindowTitle("Pdf to Postmoa Converter")
         self.setWindowIcon(QIcon("icon.png"))
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(1200, 900)
 
         # 파일에서 주소를 추출해 보여주는 table을 central widget으로 설정함
         self.table = QTableView()
 
         self.setCentralWidget(self.table)
 
+        self.model = None
+        self.data = None
+
         # empty DataFrame
-        self.data = pd.DataFrame([[1, 2, 3], [4, 5, 6]], index=['1', '2'], columns=['A', 'B', 'C'])
-        self.model = DataFrameModel(self.data)
-        self.table.setModel(self.model)
+        # self.data = pd.DataFrame([[1, 2, 3], [4, 5, 6]], index=['1', '2'], columns=['A', 'B', 'C'])
+        # self.model = DataFrameModel(self.data)
+        # self.table.setModel(self.model)
 
         # menu 추가
         menu_bar = self.menuBar()
@@ -107,6 +113,13 @@ class MainWindow(QMainWindow):
         file_open_action.setStatusTip('Open File')
         file_open_action.triggered.connect(self.open_file_dialog)
 
+        postmoa_save_action = QAction('Save PostMoa', self)
+        file_menu.addAction(postmoa_save_action)
+
+        postmoa_save_action.setShortcut('Ctrl+C')
+        postmoa_save_action.setStatusTip('Convert to PostMoa')
+        postmoa_save_action.triggered.connect(self.save_postmoa_dialog)
+
         self.setMenuBar(menu_bar)
 
     def reset_table(self, data: pd.DataFrame):
@@ -114,6 +127,13 @@ class MainWindow(QMainWindow):
         self.model = DataFrameModel(self.data)
         self.table.setModel(self.model)
         self.table.resizeColumnsToContents()
+
+    def save_postmoa_dialog(self):
+        directory = QFileDialog.getExistingDirectory(self, 'Save PostMoa Directory',
+                                                     directory=r'c:\Users\User\Desktop\작업용 임시 폴더',
+                                                     options=QFileDialog.Option.ShowDirsOnly)
+
+        print(f'{directory=}')
 
     def open_file_dialog(self):
         files, filter_used = QFileDialog.getOpenFileNames(parent=self,

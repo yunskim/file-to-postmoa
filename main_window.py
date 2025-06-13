@@ -94,8 +94,8 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(self.table)
 
-        self.model = None
-        self.data = None
+        self.model: DataFrameModel | None = None
+        self.data: pd.DataFrame | None = None
 
         # empty DataFrame
         # self.data = pd.DataFrame([[1, 2, 3], [4, 5, 6]], index=['1', '2'], columns=['A', 'B', 'C'])
@@ -122,18 +122,26 @@ class MainWindow(QMainWindow):
 
         self.setMenuBar(menu_bar)
 
-    def reset_table(self, data: pd.DataFrame):
-        self.data = data
+    def clear_table(self):
+        self.data = None
+        self.model = DataFrameModel()
+        self.table.setModel(self.model)
+        self.table.resizeColumnsToContents()
+
+    def reset_table(self):
         self.model = DataFrameModel(self.data)
         self.table.setModel(self.model)
         self.table.resizeColumnsToContents()
+
+    def append_data_to_table(self, df: pd.DataFrame):
+        self.data = self.data.append(df)
 
     def save_postmoa_dialog(self):
         directory = QFileDialog.getExistingDirectory(self, 'Save PostMoa Directory',
                                                      directory=r'c:\Users\User\Desktop\작업용 임시 폴더',
                                                      options=QFileDialog.Option.ShowDirsOnly)
 
-        print(f'{directory=}')
+        directory = pathlib.Path(directory)
 
     def open_file_dialog(self):
         files, filter_used = QFileDialog.getOpenFileNames(parent=self,
@@ -156,7 +164,8 @@ class MainWindow(QMainWindow):
                 due_date = ''.join(due_date)
                 df.loc[len(df)] = [name, zipcode, address, title, bike_number, due_date]
 
-        self.reset_table(df)
+        self.append_data_to_table(df)
+        self.reset_table()
 
     @staticmethod
     def extract_pattern_from_pdf(pdf: pathlib.Path | str, pattern: re.Pattern) -> tuple[AnyStr, ...]:

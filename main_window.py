@@ -1,7 +1,12 @@
 import sys
 
 from PyQt6.QtGui import QIcon, QAction
-from PyQt6.QtWidgets import QMainWindow, QApplication, QTableView
+from PyQt6.QtWidgets import QMainWindow, QApplication, QTableView, QFileDialog
+
+FILTERS = [
+    "Excel Files (*.xlsx)",
+    "All Files (*)",
+]
 
 
 class MainWindow(QMainWindow):
@@ -23,7 +28,18 @@ class MainWindow(QMainWindow):
         file_open_action = QAction('Open File', self)
         file_menu.addAction(file_open_action)
 
+        file_open_action.setShortcut('Ctrl+O')
+        file_open_action.setStatusTip('Open File')
+        file_open_action.triggered.connect(self.open_file_dialog)
+
         self.setMenuBar(menu_bar)
+
+    def open_file_dialog(self):
+        files = QFileDialog.getOpenFileNames(parent=self,
+                                             caption='open file',
+                                             directory=None,
+                                             filter=';;'.join(FILTERS),
+                                             initialFilter=FILTERS[0])
 
 
 if __name__ == '__main__':

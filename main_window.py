@@ -35,11 +35,14 @@ class MainWindow(QMainWindow):
         self.setMenuBar(menu_bar)
 
     def open_file_dialog(self):
-        files = QFileDialog.getOpenFileNames(parent=self,
-                                             caption='open file',
-                                             directory=None,
-                                             filter=';;'.join(FILTERS),
-                                             initialFilter=FILTERS[0])
+        files, filter_used = QFileDialog.getOpenFileNames(parent=self,
+                                                          caption='open file',
+                                                          directory=None,
+                                                          filter=';;'.join(FILTERS),
+                                                          initialFilter=FILTERS[0])
+
+        print(f'files: {files}')
+        print(f'filter_used: {filter_used}')
 
 
 if __name__ == '__main__':

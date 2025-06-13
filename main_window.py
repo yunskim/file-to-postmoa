@@ -8,6 +8,7 @@ from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt
 
 import pathlib
 import pandas as pd
+from typing import AnyStr
 from pypdf import PdfReader
 
 FILTERS = [
@@ -17,7 +18,21 @@ FILTERS = [
     "All Files (*)",
 ]
 
-ADDRESS = re.compile(r'수신\s+(.+)\s+귀하\s+\(우(\d+)\s+(.+)\)\n\(경유\)', re.DOTALL)  # 이름, zipcode, 주소
+NAME_ZIPCODE_ADDRESS = re.compile(r'수신\s+(.+)\s+귀하\s+\(우(\d+)\s+(.+)\)\n\(경유\)', re.DOTALL)  # 이름, zipcode, 주소
+TITLE = re.compile(r'제목\s+(.+)')
+BIKE_NUMBER = re.compile(r'\n(.+)\n(\w)(\d{4})\n')
+DUE_DATE = re.compile(r'\n(\d+\.\d+\.\d+\.)')
+
+COLUMNS_EN_TO_KR = dict(
+    name='이름',
+    zipcode='우편번호',
+    address='주소',
+    title='제목',
+    bike_number='차량번호',
+    due_date='제출기한',
+)
+
+COLUMNS_KR_TO_EN = {v: k for k, v in COLUMNS_EN_TO_KR.items()}
 
 
 class DataFrameModel(QAbstractTableModel):
@@ -52,6 +67,16 @@ class DataFrameModel(QAbstractTableModel):
 
         return False
 
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> Any:
+        ret = None
+        if role == Qt.ItemDataRole.DisplayRole:
+            if orientation == Qt.Orientation.Horizontal:
+                ret = str(self._data.columns[section])
+            if orientation == Qt.Orientation.Vertical:
+                ret = str(self._data.index[section])
+
+        return ret
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -59,10 +84,11 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("Hwp, Hwpx, Odt, Xls, Xlsx to Postmoa Converter")
         self.setWindowIcon(QIcon("icon.png"))
-        self.setGeometry(300, 300, 600, 400)
+        self.setMinimumSize(800, 600)
 
         # 파일에서 주소를 추출해 보여주는 table을 central widget으로 설정함
         self.table = QTableView()
+
         self.setCentralWidget(self.table)
 
         # empty DataFrame
@@ -74,7 +100,7 @@ class MainWindow(QMainWindow):
         menu_bar = self.menuBar()
 
         file_menu = menu_bar.addMenu("File")
-        file_open_action = QAction('Open File', self)
+        file_open_action = QAction('Open', self)
         file_menu.addAction(file_open_action)
 
         file_open_action.setShortcut('Ctrl+O')
@@ -87,6 +113,7 @@ class MainWindow(QMainWindow):
         self.data = data
         self.model = DataFrameModel(self.data)
         self.table.setModel(self.model)
+        self.table.resizeColumnsToContents()
 
     def open_file_dialog(self):
         files, filter_used = QFileDialog.getOpenFileNames(parent=self,
@@ -95,23 +122,32 @@ class MainWindow(QMainWindow):
                                                           filter=';;'.join(FILTERS),
                                                           initialFilter=FILTERS[2])  # default는 pdf!!!
 
+        df = pd.DataFrame(columns=list(COLUMNS_KR_TO_EN.keys()))
+
         files = [pathlib.Path(file) for file in files]
         for file in files:
             if file.suffix in ('.pdf',):
-                print(self.extract_text_from_pdf(file))
+                name, zipcode, address = self.extract_pattern_from_pdf(file, NAME_ZIPCODE_ADDRESS)
+                title = self.extract_pattern_from_pdf(file, TITLE)
+                title = ''.join(title)
+                bike_number = self.extract_pattern_from_pdf(file, BIKE_NUMBER)
+                bike_number = ''.join(bike_number)
+                due_date = self.extract_pattern_from_pdf(file, DUE_DATE)
+                due_date = ''.join(due_date)
+                df.loc[len(df)] = [name, zipcode, address, title, bike_number, due_date]
 
-        self.reset_table(self.data)
+        self.reset_table(df)
 
     @staticmethod
-    def extract_text_from_pdf(pdf: pathlib.Path | str) -> tuple[str, str, str] | None:
+    def extract_pattern_from_pdf(pdf: pathlib.Path | str, pattern: re.Pattern) -> tuple[AnyStr, ...]:
         pdf = pathlib.Path(pdf).resolve()
         text = ''
 
         for page in PdfReader(pdf).pages:
             text += page.extract_text()
 
-        name, zipcode, address = ADDRESS.search(text).groups()  # 일치하는 모든 str
-        return name, zipcode, address
+        ret = pattern.search(text).groups()  # 일치하는 모든 str
+        return ret
 
 
 if __name__ == '__main__':

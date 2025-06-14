@@ -4,7 +4,7 @@ import re
 import io
 
 from PyQt6.QtGui import QIcon, QAction, QColor
-from PyQt6.QtWidgets import QMainWindow, QApplication, QTableView, QFileDialog
+from PyQt6.QtWidgets import QMainWindow, QApplication, QTableView, QFileDialog, QMessageBox
 from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt
 
 import pathlib
@@ -112,12 +112,14 @@ class MainWindow(QMainWindow):
         file_menu = menu_bar.addMenu("File")
         open_file_action = QAction('Open', self)
 
+        ## open file action 추가
         open_file_action.setShortcut('Ctrl+O')
         open_file_action.setStatusTip('Open File')
         open_file_action.triggered.connect(self.open_file_dialog)
 
         file_menu.addAction(open_file_action)
 
+        ## conver to postmoa action 추가
         convert_to_postmoa_action = QAction('Save PostMoa', self)
         file_menu.addAction(convert_to_postmoa_action)
 
@@ -125,6 +127,7 @@ class MainWindow(QMainWindow):
         convert_to_postmoa_action.setStatusTip('Convert to PostMoa')
         convert_to_postmoa_action.triggered.connect(self.convert_to_postmoa_dialog)
 
+        ## clear table action 추가
         clear_table_action = QAction('Clear Table', self)
         file_menu.addAction(clear_table_action)
         clear_table_action.setStatusTip('Clear Table')
@@ -135,7 +138,7 @@ class MainWindow(QMainWindow):
 
     def clear_table(self):
         self.data = None
-        self.model = DataFrameModel()
+        self.model = DataFrameModel(self.data)
         self.table.setModel(self.model)
         self.table.resizeColumnsToContents()
 
@@ -157,6 +160,7 @@ class MainWindow(QMainWindow):
                                                      options=QFileDialog.Option.ShowDirsOnly)
 
         directory = pathlib.Path(directory)
+        print(directory)
 
     def open_file_dialog(self):
         files, filter_used = QFileDialog.getOpenFileNames(parent=self,
@@ -184,6 +188,21 @@ class MainWindow(QMainWindow):
 
         self.append_data_to_table(df)
         self.reset_table()  # data가 바뀌면 table에 변화를 반영해야 함
+
+    def closeEvent(self, event):
+        # Alternative to "QMessageBox.Yes" for PyQt6
+        # https://stackoverflow.com/questions/65735260/alternative-to-qmessagebox-yes-for-pyqt6
+        reply = QMessageBox.question(
+            self,
+            'Close Confirmation',
+            'Are you sure you want to close the window?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            event.accept()
+        else:
+            event.ignore()
 
     @staticmethod
     def extract_pattern_from_pdf(pdf: pathlib.Path | str, pattern: re.Pattern) -> tuple[AnyStr, ...]:

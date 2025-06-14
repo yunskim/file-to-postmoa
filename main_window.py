@@ -44,10 +44,14 @@ class DataFrameModel(QAbstractTableModel):
         self._data = data
 
     def rowCount(self, parent: QModelIndex = ...) -> int:
-        return self._data.shape[0]
+        if self._data:
+            return self._data.shape[0]
+        return 0
 
     def columnCount(self, parent: QModelIndex = ...) -> int:
-        return self._data.shape[1]
+        if self._data:
+            return self._data.shape[1]
+        return 0
 
     def data(self, index: QModelIndex, role: int = ...) -> Any:
         ret = None
@@ -106,19 +110,26 @@ class MainWindow(QMainWindow):
         menu_bar = self.menuBar()
 
         file_menu = menu_bar.addMenu("File")
-        file_open_action = QAction('Open', self)
-        file_menu.addAction(file_open_action)
+        open_file_action = QAction('Open', self)
 
-        file_open_action.setShortcut('Ctrl+O')
-        file_open_action.setStatusTip('Open File')
-        file_open_action.triggered.connect(self.open_file_dialog)
+        open_file_action.setShortcut('Ctrl+O')
+        open_file_action.setStatusTip('Open File')
+        open_file_action.triggered.connect(self.open_file_dialog)
 
-        postmoa_save_action = QAction('Save PostMoa', self)
-        file_menu.addAction(postmoa_save_action)
+        file_menu.addAction(open_file_action)
 
-        postmoa_save_action.setShortcut('Ctrl+C')
-        postmoa_save_action.setStatusTip('Convert to PostMoa')
-        postmoa_save_action.triggered.connect(self.save_postmoa_dialog)
+        convert_to_postmoa_action = QAction('Save PostMoa', self)
+        file_menu.addAction(convert_to_postmoa_action)
+
+        convert_to_postmoa_action.setShortcut('Ctrl+C')
+        convert_to_postmoa_action.setStatusTip('Convert to PostMoa')
+        convert_to_postmoa_action.triggered.connect(self.convert_to_postmoa_dialog)
+
+        clear_table_action = QAction('Clear Table', self)
+        file_menu.addAction(clear_table_action)
+        clear_table_action.setStatusTip('Clear Table')
+        clear_table_action.setShortcut('Ctrl+N')
+        clear_table_action.triggered.connect(self.clear_table)
 
         self.setMenuBar(menu_bar)
 
@@ -134,9 +145,13 @@ class MainWindow(QMainWindow):
         self.table.resizeColumnsToContents()
 
     def append_data_to_table(self, df: pd.DataFrame):
-        self.data = self.data.append(df)
+        try:
+            self.data = self.data.append(df)
 
-    def save_postmoa_dialog(self):
+        except AttributeError as err:
+            print(err)
+
+    def convert_to_postmoa_dialog(self):
         directory = QFileDialog.getExistingDirectory(self, 'Save PostMoa Directory',
                                                      directory=r'c:\Users\User\Desktop\작업용 임시 폴더',
                                                      options=QFileDialog.Option.ShowDirsOnly)
@@ -155,17 +170,20 @@ class MainWindow(QMainWindow):
         files = [pathlib.Path(file) for file in files]
         for file in files:
             if file.suffix in ('.pdf',):
-                name, zipcode, address = self.extract_pattern_from_pdf(file, NAME_ZIPCODE_ADDRESS)
-                title = self.extract_pattern_from_pdf(file, TITLE)
-                title = ''.join(title)
-                bike_number = self.extract_pattern_from_pdf(file, BIKE_NUMBER)
-                bike_number = ''.join(bike_number)
-                due_date = self.extract_pattern_from_pdf(file, DUE_DATE)
-                due_date = ''.join(due_date)
-                df.loc[len(df)] = [name, zipcode, address, title, bike_number, due_date]
+                try:
+                    name, zipcode, address = self.extract_pattern_from_pdf(file, NAME_ZIPCODE_ADDRESS)
+                    title = self.extract_pattern_from_pdf(file, TITLE)
+                    title = ''.join(title)
+                    bike_number = self.extract_pattern_from_pdf(file, BIKE_NUMBER)
+                    bike_number = ''.join(bike_number)
+                    due_date = self.extract_pattern_from_pdf(file, DUE_DATE)
+                    due_date = ''.join(due_date)
+                    df.loc[len(df)] = [name, zipcode, address, title, bike_number, due_date]
+                except AttributeError as err:
+                    print(err)
 
         self.append_data_to_table(df)
-        self.reset_table()
+        self.reset_table()  # data가 바뀌면 table에 변화를 반영해야 함
 
     @staticmethod
     def extract_pattern_from_pdf(pdf: pathlib.Path | str, pattern: re.Pattern) -> tuple[AnyStr, ...]:

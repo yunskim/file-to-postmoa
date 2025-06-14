@@ -12,7 +12,7 @@ import pandas as pd
 from typing import AnyStr
 from pypdf import PdfReader
 
-from openpyxl import load_workbook
+import xlwings as xw
 
 FILTERS = [
     "Hwp (*.hwp *.hwpx *.odt )",
@@ -36,6 +36,9 @@ COLUMNS_EN_TO_KR = dict(
 )
 
 COLUMNS_KR_TO_EN = {v: k for k, v in COLUMNS_EN_TO_KR.items()}
+
+NORMAL_MAIL_EMPTY_DATAFRAME = pd.DataFrame(columns=['<UNK>', '<UNK>', '<UNK>'])
+REGISTERED_MAIL_EMPTY_DATAFRAME = pd.DataFrame(columns=['<UNK>', '<UNK>', '<UNK>'])
 
 
 class DataFrameModel(QAbstractTableModel):
@@ -160,7 +163,9 @@ class MainWindow(QMainWindow):
                                                      options=QFileDialog.Option.ShowDirsOnly)
 
         directory = pathlib.Path(directory)
-        print(directory)
+
+        with xw.App() as app:
+            sheet = app.Book().sheets['입력']
 
     def open_file_dialog(self):
         files, filter_used = QFileDialog.getOpenFileNames(parent=self,

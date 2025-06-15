@@ -183,28 +183,27 @@ class MainWindow(QMainWindow):
 
     def save_to_postmoa_normal_mail(self, target: pathlib.Path | str):
         target = pathlib.Path(target)
-        df_normal_mail = pd.DataFrame(columns=['이름', '주소', '우편번호'])
+        df_normal_mail = NORMAL_MAIL_EMPTY_DATAFRAME.copy(deep=True)
 
-        if self.data.any():
-            df_normal_mail['이름'] = self.data['name']
-            df_normal_mail['주소'] = self.data['address']
-            df_normal_mail['우편번호'] = self.data['zipcode']
+        if any(self.data):
+            print(f'{self.data}')
+            df_normal_mail['이름'] = self.data['이름']
+            df_normal_mail['주소'] = self.data['주소']
+            df_normal_mail['우편번호'] = self.data['우편번호']
 
-        print(f'{self.data}')
         print(f'{df_normal_mail}')
-        df_normal_mail.to_xls()
 
     def save_to_postmoa_registered_mail(self, target: pathlib.Path | str):
         target = pathlib.Path(target)
-        df_normal_mail = pd.DataFrame(columns=['이름', '주소', '우편번호'])
+        df_registered_mail = REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True)
 
-        if self.data.any():
-            df_normal_mail['이름'] = self.data['name']
-            df_normal_mail['주소'] = self.data['address']
-            df_normal_mail['우편번호'] = self.data['zipcode']
+        if any(self.data):
+            df_registered_mail['이름'] = self.data['이름']
+            df_registered_mail['주소'] = self.data['주소']
+            df_registered_mail['우편번호'] = self.data['우편번호']
 
         print(f'{self.data}')
-        print(f'{df_normal_mail}')
+        print(f'{df_registered_mail}')
 
     def open_file_dialog(self):
         files, filter_used = QFileDialog.getOpenFileNames(parent=self,

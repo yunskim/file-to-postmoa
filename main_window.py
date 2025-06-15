@@ -157,6 +157,8 @@ class MainWindow(QMainWindow):
         except AttributeError as err:
             print(err)
 
+        self.reset_table()  # data가 바뀌면 table에 변화를 반영해야 함
+
     def convert_to_postmoa_dialog(self):
         directory = QFileDialog.getExistingDirectory(self, 'Save PostMoa Directory',
                                                      directory=r'c:\Users\User\Desktop\작업용 임시 폴더',
@@ -191,8 +193,7 @@ class MainWindow(QMainWindow):
                 except AttributeError as err:
                     print(err)
 
-        self.append_data_to_table(df)
-        self.reset_table()  # data가 바뀌면 table에 변화를 반영해야 함
+        self.append_data_to_table(df)  # 새로은 pdf를 읽어 기존 테이블에 추가
 
     def closeEvent(self, event):
         # Alternative to "QMessageBox.Yes" for PyQt6

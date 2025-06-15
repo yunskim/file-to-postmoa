@@ -12,7 +12,7 @@ import pathlib
 import pandas as pd
 from typing import AnyStr
 from pypdf import PdfReader
-
+import arrow
 import xlwings as xw
 
 FILTERS = [
@@ -40,6 +40,7 @@ COLUMNS_KR_TO_EN = {v: k for k, v in COLUMNS_EN_TO_KR.items()}
 
 NORMAL_MAIL_EMPTY_DATAFRAME = pd.DataFrame(columns=['<UNK>', '<UNK>', '<UNK>'])
 REGISTERED_MAIL_EMPTY_DATAFRAME = pd.DataFrame(columns=['<UNK>', '<UNK>', '<UNK>'])
+DATA_EMPTY_DATAFRAME = pd.DataFrame(columns=list(COLUMNS_KR_TO_EN.keys()))
 
 
 class DataFrameModel(QAbstractTableModel):
@@ -103,7 +104,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.table)
 
         self.model: DataFrameModel | None = None
-        self.data: pd.DataFrame | None = None
+        self.data: pd.DataFrame | None = DATA_EMPTY_DATAFRAME
 
         # empty DataFrame
         # self.data = pd.DataFrame([[1, 2, 3], [4, 5, 6]], index=['1', '2'], columns=['A', 'B', 'C'])
@@ -161,18 +162,49 @@ class MainWindow(QMainWindow):
         self.reset_table()  # data가 바뀌면 table에 변화를 반영해야 함
 
     def convert_to_postmoa_dialog(self):
-        directory = QFileDialog.getExistingDirectory(self, 'Save PostMoa Directory',
-                                                     directory=r'c:\Users\User\Desktop\작업용 임시 폴더',
-                                                     options=QFileDialog.Option.ShowDirsOnly)
-
-        directory = pathlib.Path(directory)
         try:
-            with xw.App() as app:
-                sheet = app.Book().sheets['입력']
+            directory = QFileDialog.getExistingDirectory(self, 'Save PostMoa Directory',
+                                                         directory=r'c:\Users\User\Desktop\작업용 임시 폴더',
+                                                         options=QFileDialog.Option.ShowDirsOnly)
+
+            directory = pathlib.Path(directory)
+            save_to_postmoa_normal_mail_path = directory / '{datetime}_normal_mail.xls'.format(
+                datetime=arrow.now().format('YYYY-MM-DD HHmmss'))
+            save_to_postmoa_registered_mail_path = directory / '{datetime}_registered_mail.xls'.format(
+                datetime=arrow.now().format('YYYY-MM-DD HHmmss'))
+
+            self.save_to_postmoa_normal_mail(save_to_postmoa_normal_mail_path)
+            self.save_to_postmoa_registered_mail(save_to_postmoa_registered_mail_path)
+
         except pywintypes.com_error as err:
             print(err)
             QMessageBox.critical(self, 'Error', 'table is not converted to postmoa')
             return
+
+    def save_to_postmoa_normal_mail(self, target: pathlib.Path | str):
+        target = pathlib.Path(target)
+        df_normal_mail = pd.DataFrame(columns=['이름', '주소', '우편번호'])
+
+        if self.data.any():
+            df_normal_mail['이름'] = self.data['name']
+            df_normal_mail['주소'] = self.data['address']
+            df_normal_mail['우편번호'] = self.data['zipcode']
+
+        print(f'{self.data}')
+        print(f'{df_normal_mail}')
+        df_normal_mail.to_xls()
+
+    def save_to_postmoa_registered_mail(self, target: pathlib.Path | str):
+        target = pathlib.Path(target)
+        df_normal_mail = pd.DataFrame(columns=['이름', '주소', '우편번호'])
+
+        if self.data.any():
+            df_normal_mail['이름'] = self.data['name']
+            df_normal_mail['주소'] = self.data['address']
+            df_normal_mail['우편번호'] = self.data['zipcode']
+
+        print(f'{self.data}')
+        print(f'{df_normal_mail}')
 
     def open_file_dialog(self):
         files, filter_used = QFileDialog.getOpenFileNames(parent=self,

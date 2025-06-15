@@ -3,6 +3,7 @@ from typing import Any
 import re
 import io
 
+import pywintypes
 from PyQt6.QtGui import QIcon, QAction, QColor
 from PyQt6.QtWidgets import QMainWindow, QApplication, QTableView, QFileDialog, QMessageBox
 from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt
@@ -165,9 +166,13 @@ class MainWindow(QMainWindow):
                                                      options=QFileDialog.Option.ShowDirsOnly)
 
         directory = pathlib.Path(directory)
-
-        with xw.App() as app:
-            sheet = app.Book().sheets['입력']
+        try:
+            with xw.App() as app:
+                sheet = app.Book().sheets['입력']
+        except pywintypes.com_error as err:
+            print(err)
+            QMessageBox.critical(self, 'Error', 'table is not converted to postmoa')
+            return
 
     def open_file_dialog(self):
         files, filter_used = QFileDialog.getOpenFileNames(parent=self,

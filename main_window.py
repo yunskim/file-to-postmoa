@@ -128,7 +128,7 @@ class MainWindow(QMainWindow):
         file_menu.addAction(open_file_action)
 
         ## conver to postmoa action 추가
-        convert_to_postmoa_action = QAction('Save to PostMoa', self)
+        convert_to_postmoa_action = QAction('Convert to PostMoa', self)
         file_menu.addAction(convert_to_postmoa_action)
 
         convert_to_postmoa_action.setShortcut('Ctrl+C')
@@ -189,26 +189,48 @@ class MainWindow(QMainWindow):
     def save_to_postmoa_normal_mail(self, target: pathlib.Path | str):
         target = pathlib.Path(target)
         df_normal_mail = NORMAL_MAIL_EMPTY_DATAFRAME.copy(deep=True)
+        # print(f'update 전 {df_normal_mail}')
 
         if any(self.data):
-            print(f'{self.data}')
-            df_normal_mail['이름'] = self.data['이름']
-            df_normal_mail['주소'] = self.data['주소']
-            df_normal_mail['우편번호'] = self.data['우편번호']
+            df_normal_mail['수취인*'] = self.data['이름']
+            df_normal_mail['우편번호*'] = self.data['우편번호']
+            df_normal_mail['기본주소*'] = self.data['주소']
+            df_normal_mail['문서제목'] = self.data['차량번호']
+            df_normal_mail['비고'] = self.data['제출기한']
 
-        print(f'{df_normal_mail}')
+            # broadcasting을 사용할 수 있는데
+            # order가 중요함
+            # 규격*을 처음 적용하면 length가 0이라서
+            # broadcasting이 제대로 되지 않음
+            df_normal_mail['규격*'] = '규격'
+            df_normal_mail['중량*'] = '25'
+            df_normal_mail['통수*'] = '1'
+
+            df_normal_mail.to_excel(target, index=False)
+
+        # print(f'update 후 {df_normal_mail}')
 
     def save_to_postmoa_registered_mail(self, target: pathlib.Path | str):
         target = pathlib.Path(target)
         df_registered_mail = REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True)
 
         if any(self.data):
-            df_registered_mail['이름'] = self.data['이름']
-            df_registered_mail['주소'] = self.data['주소']
-            df_registered_mail['우편번호'] = self.data['우편번호']
+            df_registered_mail['수취인*'] = self.data['이름']
+            df_registered_mail['우편번호*'] = self.data['우편번호']
+            df_registered_mail['기본주소*'] = self.data['주소']
+            df_registered_mail['문서제목'] = self.data['차량번호']
+            df_registered_mail['비고'] = self.data['제출기한']
 
-        print(f'{self.data}')
-        print(f'{df_registered_mail}')
+            # broadcasting을 사용할 수 있는데
+            # order가 중요함
+            # 규격*을 처음 적용하면 length가 0이라서
+            # broadcasting이 제대로 되지 않음
+            df_registered_mail['규격*'] = '규격'
+            df_registered_mail['중량'] = '25'
+            df_registered_mail['수수료*'] = '보통'
+            df_registered_mail['환부*'] = '환부불능'
+
+            df_registered_mail.to_excel(target, index=False)
 
     def open_file_dialog(self):
         files, filter_used = QFileDialog.getOpenFileNames(parent=self,

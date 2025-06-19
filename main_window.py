@@ -92,6 +92,12 @@ class DataFrameModel(QAbstractTableModel):
 
         return ret
 
+    def flags(self, index: QModelIndex) -> Qt.ItemFlag:
+        if not index.isValid():
+            return Qt.ItemFlag.ItemIsEnabled
+
+        return super().flags(index) | Qt.ItemFlag.ItemIsEditable
+
 
 class MainWindow(QMainWindow):
     def __init__(self):

@@ -13,7 +13,7 @@ import pandas as pd
 from typing import AnyStr
 from pypdf import PdfReader
 import arrow
-import xlwings as xw
+import win32com.client as win32
 
 FILTERS = [
     "Hwp (*.hwp *.hwpx *.odt )",
@@ -207,6 +207,25 @@ class MainWindow(QMainWindow):
             df_normal_mail['통수*'] = '1'
 
             df_normal_mail.to_excel(target, index=False)
+            self.to_xls(target)
+
+    @staticmethod
+    def to_xls(xlsx: str | pathlib.Path) -> str:
+        # print("to_xls called")
+        if isinstance(xlsx, str):
+            xlsx = pathlib.Path(xlsx)
+
+        excel_app = win32.gencache.EnsureDispatch('Excel.Application')
+        wb = excel_app.Workbooks.Open(xlsx)
+
+        xls = xlsx.with_suffix('.xls')
+        xls = str(xls)
+
+        wb.SaveAs(xls, FileFormat=56)  # 56은 .xls
+        wb.Close()
+        # excel_app.Quit()
+
+        return xls
 
         # print(f'update 후 {df_normal_mail}')
 
@@ -231,6 +250,7 @@ class MainWindow(QMainWindow):
             df_registered_mail['환부*'] = '환부불능'
 
             df_registered_mail.to_excel(target, index=False)
+            self.to_xls(target)
 
     def open_file_dialog(self):
         files, filter_used = QFileDialog.getOpenFileNames(parent=self,

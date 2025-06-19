@@ -173,9 +173,9 @@ class MainWindow(QMainWindow):
                                                          options=QFileDialog.Option.ShowDirsOnly)
 
             directory = pathlib.Path(directory)
-            save_to_postmoa_normal_mail_path = directory / '{datetime}_normal_mail.xls'.format(
+            save_to_postmoa_normal_mail_path = directory / '{datetime}_일반우편.xls'.format(
                 datetime=arrow.now().format('YYYY-MM-DD HHmmss'))
-            save_to_postmoa_registered_mail_path = directory / '{datetime}_registered_mail.xls'.format(
+            save_to_postmoa_registered_mail_path = directory / '{datetime}_등기우편.xls'.format(
                 datetime=arrow.now().format('YYYY-MM-DD HHmmss'))
 
             self.save_to_postmoa_normal_mail(save_to_postmoa_normal_mail_path)
@@ -211,7 +211,13 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def to_xls(xlsx: str | pathlib.Path) -> str:
-        # print("to_xls called")
+        """
+        df.to_excel()이 xlsx만 지원해서
+        일단 xlsx로 저장하고 xls로 다시 바꾸는 method를 작성함
+        
+        :param xlsx: 
+        :return: 
+        """
         if isinstance(xlsx, str):
             xlsx = pathlib.Path(xlsx)
 

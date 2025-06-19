@@ -227,9 +227,14 @@ class MainWindow(QMainWindow):
         xls = xlsx.with_suffix('.xls')
         xls = str(xls)
 
+        # https://stackoverflow.com/questions/42182126/suppress-save-as-prompt
+        excel_app.DisplayAlerts = False
+
         wb.SaveAs(xls, FileFormat=56)  # 56은 .xls
         wb.Close()
         # excel_app.Quit()
+
+        excel_app.DisplayAlerts = True
 
         return xls
 

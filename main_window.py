@@ -38,8 +38,11 @@ COLUMNS_EN_TO_KR = dict(
 
 COLUMNS_KR_TO_EN = {v: k for k, v in COLUMNS_EN_TO_KR.items()}
 
-NORMAL_MAIL_EMPTY_DATAFRAME = pd.DataFrame(columns=['<UNK>', '<UNK>', '<UNK>'])
-REGISTERED_MAIL_EMPTY_DATAFRAME = pd.DataFrame(columns=['<UNK>', '<UNK>', '<UNK>'])
+NORMAL_MAIL_EMPTY_DATAFRAME = pd.DataFrame(
+    columns=['규격*', '중량*', '통수*', '수취인*', '우편번호*', '기본주소*', '상세주소', '휴대폰', '문서번호', '문서제목', '비고'])
+REGISTERED_MAIL_EMPTY_DATAFRAME = pd.DataFrame(
+    columns=['수수료*', '환부*', '규격*', '중량', '수취인*', '우편번호*', '기본주소*', '상세주소', '휴대폰', '문서번호', '문서제목', '비고'])
+
 DATA_EMPTY_DATAFRAME = pd.DataFrame(columns=list(COLUMNS_KR_TO_EN.keys()))
 
 
@@ -49,12 +52,12 @@ class DataFrameModel(QAbstractTableModel):
         self._data = data
 
     def rowCount(self, parent: QModelIndex = ...) -> int:
-        if self._data:
+        if any(self._data):
             return self._data.shape[0]
         return 0
 
     def columnCount(self, parent: QModelIndex = ...) -> int:
-        if self._data:
+        if any(self._data):
             return self._data.shape[1]
         return 0
 
@@ -125,7 +128,7 @@ class MainWindow(QMainWindow):
         file_menu.addAction(open_file_action)
 
         ## conver to postmoa action 추가
-        convert_to_postmoa_action = QAction('Save PostMoa', self)
+        convert_to_postmoa_action = QAction('Save to PostMoa', self)
         file_menu.addAction(convert_to_postmoa_action)
 
         convert_to_postmoa_action.setShortcut('Ctrl+C')
@@ -154,7 +157,9 @@ class MainWindow(QMainWindow):
 
     def append_data_to_table(self, df: pd.DataFrame):
         try:
-            self.data = self.data.append(df)
+            self.data = pd.concat([self.data, df],
+                                  axis=0)
+            self.data.reset_index()
 
         except AttributeError as err:
             print(err)
@@ -255,6 +260,8 @@ class MainWindow(QMainWindow):
             text += page.extract_text()
 
         ret = pattern.search(text).groups()  # 일치하는 모든 str
+
+        print(f'{ret=}')
         return ret
 
 

@@ -233,8 +233,6 @@ class MainWindow(QMainWindow):
 
         return xls
 
-        # print(f'update 후 {df_normal_mail}')
-
     def save_to_postmoa_registered_mail(self, target: pathlib.Path | str):
         target = pathlib.Path(target)
         df_registered_mail = REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True)
@@ -307,9 +305,12 @@ class MainWindow(QMainWindow):
         for page in PdfReader(pdf).pages:
             text += page.extract_text()
 
-        ret = pattern.search(text).groups()  # 일치하는 모든 str
+        try:
+            ret = pattern.search(text).groups()  # 일치하는 모든 str
+        except AttributeError:
+            ret = ('',)
 
-        print(f'{ret=}')
+        # print(f'{ret=}')
         return ret
 
 

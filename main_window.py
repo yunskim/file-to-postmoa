@@ -25,6 +25,8 @@ from reportlab.pdfbase.ttfonts import TTFont
 # print(A4)
 
 pdfmetrics.registerFont(TTFont("맑은고딕", "malgun.ttf"))
+pdfmetrics.registerFont(TTFont("맑은고딕-bold", "malgunbd.ttf"))
+
 A4_width, A4_height = A4
 A4_width_in_mm = int(A4_width / mm)
 A4_height_in_mm = int(A4_height / mm)
@@ -148,12 +150,12 @@ class MainWindow(QMainWindow):
         file_menu.addAction(open_file_action)
 
         ## conver to postmoa action 추가
-        convert_to_postmoa_action = QAction('Convert to PostMoa', self)
-        file_menu.addAction(convert_to_postmoa_action)
+        save_to_postmoa_action = QAction('Save', self)
+        file_menu.addAction(save_to_postmoa_action)
 
-        convert_to_postmoa_action.setShortcut('Ctrl+C')
-        convert_to_postmoa_action.setStatusTip('Convert to PostMoa')
-        convert_to_postmoa_action.triggered.connect(self.convert_to_postmoa_dialog)
+        save_to_postmoa_action.setShortcut('Ctrl+S')
+        save_to_postmoa_action.setStatusTip('Convert to PostMoa')
+        save_to_postmoa_action.triggered.connect(self.save_to_postmoa_dialog)
 
         ## clear table action 추가
         clear_table_action = QAction('Clear Table', self)
@@ -188,7 +190,7 @@ class MainWindow(QMainWindow):
 
         self.reset_table()  # data가 바뀌면 table에 변화를 반영해야 함
 
-    def convert_to_postmoa_dialog(self):
+    def save_to_postmoa_dialog(self):
         try:
             directory = QFileDialog.getExistingDirectory(self, 'Save PostMoa Directory',
                                                          directory=r'c:\Users\User\Desktop\작업용 임시 폴더',
@@ -267,9 +269,18 @@ class MainWindow(QMainWindow):
             index, name, zipcode, address, title, bike_number, due_date = row
 
             # print(index, name, zipcode, address, title, bike_number, due_date)
+            # 주소
             self.draw_text_to_pdf(windowed_envelop_pdf, address, 85, 244, 30, 2, "맑은고딕", 10)
-            self.draw_text_to_pdf(windowed_envelop_pdf, name, 85, 230, 30, 2, "맑은고딕", 15)
 
+            # 이름
+            self.draw_text_to_pdf(windowed_envelop_pdf, name, 85, 230, 30, 2, "맑은고딕-bold", 10)
+
+            # 우편번호
+            character_gap: int = 6
+            for i, z in enumerate(zipcode):
+                self.draw_text_to_pdf(windowed_envelop_pdf, z, 135 + (character_gap * i), 224, 30, 2, "맑은고딕", 10)
+
+            # 절취선
             self.draw_line_to_pdf(windowed_envelop_pdf, 0, 204, A4_width_in_mm, 204)
             self.draw_line_to_pdf(windowed_envelop_pdf, 0, 110, A4_width_in_mm, 110)
             self.draw_line_to_pdf(windowed_envelop_pdf, 0, 17, A4_width_in_mm, 17)
@@ -306,7 +317,6 @@ class MainWindow(QMainWindow):
             row_horizontal_offset_in_pt = horizontal_offset * mm
             row_horizontal_offset_in_pt -= font_size
             row_vertical_offset_in_pt = (vertical_offset * mm) - (font_size + (row_gap * mm)) * i
-            row_vertical_offset_in_pt -= font_size
 
             canvas.drawString(row_horizontal_offset_in_pt, row_vertical_offset_in_pt, row)
 

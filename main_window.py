@@ -261,6 +261,7 @@ class MainWindow(QMainWindow):
 
     def save_to_windowed_envelop_pdf(self, target: pathlib.Path | str):
         print(f'save_to_windowed_envelop_pdf: {target}')
+        max_text_length = 35
 
         target = pathlib.Path(target)
         windowed_envelop_pdf = Canvas(filename=str(target), pagesize=A4)
@@ -270,15 +271,16 @@ class MainWindow(QMainWindow):
 
             # print(index, name, zipcode, address, title, bike_number, due_date)
             # 주소
-            self.draw_text_to_pdf(windowed_envelop_pdf, address, 85, 244, 30, 2, "맑은고딕", 10)
+            self.draw_text_to_pdf(windowed_envelop_pdf, address, 85, 244, max_text_length, 2, "맑은고딕", 10)
 
             # 이름
-            self.draw_text_to_pdf(windowed_envelop_pdf, name, 85, 230, 30, 2, "맑은고딕-bold", 10)
+            self.draw_text_to_pdf(windowed_envelop_pdf, name, 85, 230, max_text_length, 2, "맑은고딕-bold", 10)
 
             # 우편번호
             character_gap: int = 6
             for i, z in enumerate(zipcode):
-                self.draw_text_to_pdf(windowed_envelop_pdf, z, 135 + (character_gap * i), 220, 30, 2, "맑은고딕", 10)
+                self.draw_text_to_pdf(windowed_envelop_pdf, z, 135 + (character_gap * i), 220, max_text_length, 2,
+                                      "맑은고딕", 10)
 
             # 절취선
             self.draw_line_to_pdf(windowed_envelop_pdf, 0, 204, A4_width_in_mm, 204)
@@ -350,6 +352,8 @@ class MainWindow(QMainWindow):
             if file.suffix in ('.pdf',):
                 try:
                     name, zipcode, address = self.extract_pattern_from_pdf(file, NAME_ZIPCODE_ADDRESS)
+                    address = address.replace('\n', '')  # 가끔 \n이 들어가 있는 경우가 있음
+
                     title = self.extract_pattern_from_pdf(file, TITLE)
                     title = ''.join(title)
                     bike_number = self.extract_pattern_from_pdf(file, BIKE_NUMBER)

@@ -278,12 +278,15 @@ class MainWindow(QMainWindow):
             # 우편번호
             character_gap: int = 6
             for i, z in enumerate(zipcode):
-                self.draw_text_to_pdf(windowed_envelop_pdf, z, 135 + (character_gap * i), 224, 30, 2, "맑은고딕", 10)
+                self.draw_text_to_pdf(windowed_envelop_pdf, z, 135 + (character_gap * i), 220, 30, 2, "맑은고딕", 10)
 
             # 절취선
             self.draw_line_to_pdf(windowed_envelop_pdf, 0, 204, A4_width_in_mm, 204)
             self.draw_line_to_pdf(windowed_envelop_pdf, 0, 110, A4_width_in_mm, 110)
             self.draw_line_to_pdf(windowed_envelop_pdf, 0, 17, A4_width_in_mm, 17)
+
+            # 테스트
+            windowed_envelop_pdf.rect(85 * mm, 244 * mm, 100 * mm, 200 * mm)
 
             windowed_envelop_pdf.showPage()  # 한 페이지 완성
 
@@ -315,7 +318,6 @@ class MainWindow(QMainWindow):
 
         for i, row in enumerate(wrapped_text_rows):
             row_horizontal_offset_in_pt = horizontal_offset * mm
-            row_horizontal_offset_in_pt -= font_size
             row_vertical_offset_in_pt = (vertical_offset * mm) - (font_size + (row_gap * mm)) * i
 
             canvas.drawString(row_horizontal_offset_in_pt, row_vertical_offset_in_pt, row)

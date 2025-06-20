@@ -96,7 +96,7 @@ class DataFrameModel(QAbstractTableModel):
         if not index.isValid():
             return Qt.ItemFlag.ItemIsEnabled
 
-        return super().flags(index) | Qt.ItemFlag.ItemIsEditable
+        return super().flags(index) | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsSelectable
 
 
 class MainWindow(QMainWindow):
@@ -150,8 +150,10 @@ class MainWindow(QMainWindow):
 
         self.setMenuBar(menu_bar)
 
+        self.reset_table()
+
     def clear_table(self):
-        self.data = None
+        self.data = DATA_EMPTY_DATAFRAME.copy(deep=True)
         self.model = DataFrameModel(self.data)
         self.table.setModel(self.model)
         self.table.resizeColumnsToContents()
@@ -201,7 +203,7 @@ class MainWindow(QMainWindow):
             df_normal_mail['수취인*'] = self.data['이름']
             df_normal_mail['우편번호*'] = self.data['우편번호']
             df_normal_mail['기본주소*'] = self.data['주소']
-            df_normal_mail['문서제목'] = self.data['차량번호']
+            df_normal_mail['문서제목'] = self.data['제목']
             df_normal_mail['비고'] = self.data['제출기한']
 
             # broadcasting을 사용할 수 있는데
@@ -252,7 +254,7 @@ class MainWindow(QMainWindow):
             df_registered_mail['수취인*'] = self.data['이름']
             df_registered_mail['우편번호*'] = self.data['우편번호']
             df_registered_mail['기본주소*'] = self.data['주소']
-            df_registered_mail['문서제목'] = self.data['차량번호']
+            df_registered_mail['문서제목'] = self.data['제목']
             df_registered_mail['비고'] = self.data['제출기한']
 
             # broadcasting을 사용할 수 있는데
@@ -270,7 +272,7 @@ class MainWindow(QMainWindow):
     def open_file_dialog(self):
         files, filter_used = QFileDialog.getOpenFileNames(parent=self,
                                                           caption='open file',
-                                                          directory=None,
+                                                          directory=r'c:\Users\User\Desktop\작업용 임시 폴더',
                                                           filter=';;'.join(FILTERS),
                                                           initialFilter=FILTERS[2])  # default는 pdf!!!
 

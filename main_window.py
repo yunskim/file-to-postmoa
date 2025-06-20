@@ -115,7 +115,102 @@ class DataFrameModel(QAbstractTableModel):
         return super().flags(index) | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsSelectable
 
 
-class MainWindow(QMainWindow):
+class PdfMixin:
+    @staticmethod
+    def extract_pattern_from_pdf(pdf: pathlib.Path | str, pattern: re.Pattern) -> tuple[AnyStr, ...]:
+        pdf = pathlib.Path(pdf).resolve()
+        text = ''
+
+        for page in PdfReader(pdf).pages:
+            text += page.extract_text()
+
+        try:
+            ret = pattern.search(text).groups()  # 일치하는 모든 str
+        except AttributeError:
+            ret = ('',)
+
+        # print(f'{ret=}')
+        return ret
+
+
+class ExcelMixin:
+    @staticmethod
+    def save_to_xls(xlsx: str | pathlib.Path) -> str:
+        """
+        df.to_excel()이 xlsx만 지원해서
+        일단 xlsx로 저장하고 xls로 다시 바꾸는 method를 작성함
+
+        :param xlsx:
+        :return:
+        """
+        if isinstance(xlsx, str):
+            xlsx = pathlib.Path(xlsx)
+
+        excel_app = win32.gencache.EnsureDispatch('Excel.Application')
+        wb = excel_app.Workbooks.Open(xlsx)
+
+        xls = xlsx.with_suffix('.xls')
+        xls = str(xls)
+
+        # https://stackoverflow.com/questions/42182126/suppress-save-as-prompt
+        excel_app.DisplayAlerts = False
+
+        wb.SaveAs(xls, FileFormat=56)  # 56은 .xls
+        wb.Close()
+        # excel_app.Quit()
+
+        excel_app.DisplayAlerts = True
+
+        return xls
+
+
+class ReportLabMixin:
+    @staticmethod
+    def draw_text_to_pdf(canvas: Canvas,
+                         text: str,
+                         horizontal_offset: int,
+                         vertical_offset: int,
+                         max_text_length: int,
+                         row_gap: int,
+                         font: str,
+                         font_size: int):
+        """
+
+        :param canvas: 추가할 pdf canvas object
+        :param text: 추가할 str
+        :param horizontal_offset: text box의 left coordinate(from left to right) in mm
+        :param vertical_offset: text box의 top coordinate(from bottom to top) in mm
+        :param max_text_length: 한 줄에 출력할 수 있는 글자 수
+        :param row_gap: 줄 사이 간격 in mm
+        :param font: pdfmetrics.registerFont로 추가된 폰트의 str
+        :param font_size: 폰트 크기 in pt
+        :return:
+        """
+        canvas.setFont(font, font_size)
+        wrapped_text_rows = textwrap.wrap(text, max_text_length)
+
+        for i, row in enumerate(wrapped_text_rows):
+            row_horizontal_offset_in_pt = horizontal_offset * mm
+            row_vertical_offset_in_pt = (vertical_offset * mm) - (font_size + (row_gap * mm)) * i
+
+            canvas.drawString(row_horizontal_offset_in_pt, row_vertical_offset_in_pt, row)
+
+    @staticmethod
+    def draw_line_to_pdf(canvas: Canvas,
+                         x1: int, y1: int, x2: int, y2: int):
+        """
+        (x1, y1)에서 (x2, y2)까지 line 그리기
+        :param canvas:
+        :param x1: in mm
+        :param y1: in mm
+        :param x2: in mm
+        :param y2: in mm
+        :return:
+        """
+        canvas.line(x1 * mm, y1 * mm, x2 * mm, y2 * mm)
+
+
+class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
     def __init__(self):
         super().__init__()
 
@@ -294,50 +389,6 @@ class MainWindow(QMainWindow):
 
         windowed_envelop_pdf.save()  # 전체 pdf 닫기
 
-    @staticmethod
-    def draw_text_to_pdf(canvas: Canvas,
-                         text: str,
-                         horizontal_offset: int,
-                         vertical_offset: int,
-                         max_text_length: int,
-                         row_gap: int,
-                         font: str,
-                         font_size: int):
-        """
-        
-        :param canvas: 추가할 pdf canvas object
-        :param text: 추가할 str
-        :param horizontal_offset: text box의 left coordinate(from left to right) in mm
-        :param vertical_offset: text box의 top coordinate(from bottom to top) in mm
-        :param max_text_length: 한 줄에 출력할 수 있는 글자 수
-        :param row_gap: 줄 사이 간격 in mm
-        :param font: pdfmetrics.registerFont로 추가된 폰트의 str
-        :param font_size: 폰트 크기 in pt
-        :return: 
-        """
-        canvas.setFont(font, font_size)
-        wrapped_text_rows = textwrap.wrap(text, max_text_length)
-
-        for i, row in enumerate(wrapped_text_rows):
-            row_horizontal_offset_in_pt = horizontal_offset * mm
-            row_vertical_offset_in_pt = (vertical_offset * mm) - (font_size + (row_gap * mm)) * i
-
-            canvas.drawString(row_horizontal_offset_in_pt, row_vertical_offset_in_pt, row)
-
-    @staticmethod
-    def draw_line_to_pdf(canvas: Canvas,
-                         x1: int, y1: int, x2: int, y2: int):
-        """
-        (x1, y1)에서 (x2, y2)까지 line 그리기
-        :param canvas:
-        :param x1: in mm
-        :param y1: in mm
-        :param x2: in mm
-        :param y2: in mm
-        :return:
-        """
-        canvas.line(x1 * mm, y1 * mm, x2 * mm, y2 * mm)
-
     def open_file_dialog(self):
         files, filter_used = QFileDialog.getOpenFileNames(parent=self,
                                                           caption='open file',
@@ -380,51 +431,6 @@ class MainWindow(QMainWindow):
             event.accept()
         else:
             event.ignore()
-
-    @staticmethod
-    def save_to_xls(xlsx: str | pathlib.Path) -> str:
-        """
-        df.to_excel()이 xlsx만 지원해서
-        일단 xlsx로 저장하고 xls로 다시 바꾸는 method를 작성함
-
-        :param xlsx:
-        :return:
-        """
-        if isinstance(xlsx, str):
-            xlsx = pathlib.Path(xlsx)
-
-        excel_app = win32.gencache.EnsureDispatch('Excel.Application')
-        wb = excel_app.Workbooks.Open(xlsx)
-
-        xls = xlsx.with_suffix('.xls')
-        xls = str(xls)
-
-        # https://stackoverflow.com/questions/42182126/suppress-save-as-prompt
-        excel_app.DisplayAlerts = False
-
-        wb.SaveAs(xls, FileFormat=56)  # 56은 .xls
-        wb.Close()
-        # excel_app.Quit()
-
-        excel_app.DisplayAlerts = True
-
-        return xls
-
-    @staticmethod
-    def extract_pattern_from_pdf(pdf: pathlib.Path | str, pattern: re.Pattern) -> tuple[AnyStr, ...]:
-        pdf = pathlib.Path(pdf).resolve()
-        text = ''
-
-        for page in PdfReader(pdf).pages:
-            text += page.extract_text()
-
-        try:
-            ret = pattern.search(text).groups()  # 일치하는 모든 str
-        except AttributeError:
-            ret = ('',)
-
-        # print(f'{ret=}')
-        return ret
 
 
 if __name__ == '__main__':

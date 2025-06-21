@@ -385,7 +385,14 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
             # 테스트
             windowed_envelop_pdf.rect(85 * mm, 244 * mm, 100 * mm, 200 * mm)
 
-            windowed_envelop_pdf.showPage()  # 한 페이지 완성
+            windowed_envelop_pdf.showPage()  # 한 페이지 앞면 완성
+
+            # 뒷 페이지 perforated line
+            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 204, A4_width_in_mm, 204)
+            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 110, A4_width_in_mm, 110)
+            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 17, A4_width_in_mm, 17)
+
+            windowed_envelop_pdf.showPage()  # 한 페이지 뒷면 완성
 
         windowed_envelop_pdf.save()  # 전체 pdf 닫기
 

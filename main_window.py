@@ -39,6 +39,10 @@ FILTERS = [
 ]
 
 NAME_ZIPCODE_ADDRESS = re.compile(r'수신\s+(.+)\s+귀하\s+\(우(\d+)\s+(.+)\)\n\(경유\)', re.DOTALL)  # 이름, zipcode, 주소
+NAME = re.compile(r'수신\s+(.+)(?=\s+귀하\s+\(우\d+\s+.+\)\n\(경유\))', re.DOTALL)  # 이름
+ZIPCODE = re.compile(r'수신\s+.+\s+귀하\s+\(우(\d+)\s+.+\)\n\(경유\)', re.DOTALL)  # zipcode
+ADDRESS = re.compile(r'수신\s+.+\s+귀하\s+\(우\d+\s+(.+)\)\n\(경유\)', re.DOTALL)  # 주소
+
 TITLE = re.compile(r'제목\s+(.+)')
 BIKE_NUMBER = re.compile(r'\n(.+)\n(\w)(\d{4})\n')
 DUE_DATE = re.compile(r'\n(\d+\.\d+\.\d+\.)')
@@ -117,7 +121,7 @@ class DataFrameModel(QAbstractTableModel):
 
 class PdfMixin:
     @staticmethod
-    def extract_pattern_from_pdf(pdf: pathlib.Path | str, pattern: re.Pattern) -> tuple[AnyStr, ...]:
+    def extract_pattern_from_pdf_to_str(pdf: pathlib.Path | str, pattern: re.Pattern) -> str:
         pdf = pathlib.Path(pdf).resolve()
         text = ''
 
@@ -261,7 +265,14 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
 
         self.setMenuBar(menu_bar)
 
+        # status bar
+
+        self.set_status_bar('Ready')
+
         self.reset_table()
+
+    def set_status_bar(self, text: str):
+        self.statusBar().showMessage(text)
 
     def clear_table(self):
         self.data = DATA_EMPTY_DATAFRAME.copy(deep=True)
@@ -269,10 +280,14 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
         self.table.setModel(self.model)
         self.table.resizeColumnsToContents()
 
+        self.set_status_bar('table cleared')
+
     def reset_table(self):
         self.model = DataFrameModel(self.data)
         self.table.setModel(self.model)
         self.table.resizeColumnsToContents()
+
+        self.set_status_bar('table reset')
 
     def append_data_to_table(self, df: pd.DataFrame):
         try:
@@ -284,6 +299,7 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
             print(err)
 
         self.reset_table()  # data가 바뀌면 table에 변화를 반영해야 함
+        self.set_status_bar('data appended to table')
 
     def save_to_postmoa_dialog(self):
         try:
@@ -303,9 +319,12 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
             self.save_to_postmoa_registered_mail_excel(save_to_postmoa_registered_mail_path)
             self.save_to_windowed_envelop_pdf(save_to_save_to_windowed_envelop_pdf_path)
 
+            self.set_status_bar('data saved to PostMoa xls, pdf')
+
         except pywintypes.com_error as err:
             print(err)
             QMessageBox.critical(self, 'Error', 'table is not converted to postmoa')
+            self.set_status_bar('table is not converted to postmoa')
             return
 
     def save_to_postmoa_normal_mail_excel(self, target: pathlib.Path | str):
@@ -395,6 +414,7 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
             windowed_envelop_pdf.showPage()  # 한 페이지 뒷면 완성
 
         windowed_envelop_pdf.save()  # 전체 pdf 닫기
+        self.set_status_bar('data saved to windowed envelop pdf')
 
     def open_file_dialog(self):
         files, filter_used = QFileDialog.getOpenFileNames(parent=self,
@@ -420,7 +440,11 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
                     due_date = ''.join(due_date)
                     df.loc[len(df)] = [name, zipcode, address, title, bike_number, due_date]
                 except AttributeError as err:
+                    self.set_status_bar(f'file {file} is not converted to postmoa')
                     print(err)
+                except ValueError as err:
+                    print(err)
+                    self.set_status_bar(f'file {file} is not converted to postmoa')
 
         self.append_data_to_table(df)  # 새로은 pdf를 읽어 기존 테이블에 추가
 

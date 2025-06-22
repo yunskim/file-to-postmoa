@@ -121,7 +121,7 @@ class DataFrameModel(QAbstractTableModel):
 
 class PdfMixin:
     @staticmethod
-    def extract_pattern_from_pdf_to_str(pdf: pathlib.Path | str, pattern: re.Pattern) -> str:
+    def extract_pattern_from_pdf(pdf: pathlib.Path | str, pattern: re.Pattern) -> str:
         pdf = pathlib.Path(pdf).resolve()
         text = ''
 
@@ -129,15 +129,61 @@ class PdfMixin:
             text += page.extract_text()
 
         try:
-            ret = pattern.search(text).groups()  # 일치하는 모든 str
+            ret = pattern.search(text).group(1)  # 첫번째 str
         except AttributeError:
-            ret = ('',)
+            ret = ''
 
         # print(f'{ret=}')
         return ret
 
 
 class ExcelMixin:
+    def save_to_postmoa_normal_mail_excel(self, data: pd.DataFrame, target: pathlib.Path | str):
+        target = pathlib.Path(target)
+        df_normal_mail = NORMAL_MAIL_EMPTY_DATAFRAME.copy(deep=True)
+        # print(f'update 전 {df_normal_mail}')
+
+        if any(data):
+            df_normal_mail['수취인*'] = data['이름']
+            df_normal_mail['우편번호*'] = data['우편번호']
+            df_normal_mail['기본주소*'] = data['주소']
+            df_normal_mail['문서제목'] = data['제목']
+            df_normal_mail['비고'] = data['제출기한']
+
+            # broadcasting을 사용할 수 있는데
+            # order가 중요함
+            # 규격*을 처음 적용하면 length가 0이라서
+            # broadcasting이 제대로 되지 않음
+            df_normal_mail['규격*'] = '규격'
+            df_normal_mail['중량*'] = '25'
+            df_normal_mail['통수*'] = '1'
+
+            df_normal_mail.to_excel(target, index=False)
+            self.save_to_xls(target)
+
+    def save_to_postmoa_registered_mail_excel(self, data: pd.DataFrame, target: pathlib.Path | str):
+        target = pathlib.Path(target)
+        df_registered_mail = REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True)
+
+        if any(data):
+            df_registered_mail['수취인*'] = data['이름']
+            df_registered_mail['우편번호*'] = data['우편번호']
+            df_registered_mail['기본주소*'] = data['주소']
+            df_registered_mail['문서제목'] = data['제목']
+            df_registered_mail['비고'] = data['제출기한']
+
+            # broadcasting을 사용할 수 있는데
+            # order가 중요함
+            # 규격*을 처음 적용하면 length가 0이라서
+            # broadcasting이 제대로 되지 않음
+            df_registered_mail['규격*'] = '규격'
+            df_registered_mail['중량'] = '25'
+            df_registered_mail['수수료*'] = '보통'
+            df_registered_mail['환부*'] = '환부불능'
+
+            df_registered_mail.to_excel(target, index=False)
+            self.save_to_xls(target)
+
     @staticmethod
     def save_to_xls(xlsx: str | pathlib.Path) -> str:
         """
@@ -212,6 +258,48 @@ class ReportLabMixin:
         :return:
         """
         canvas.line(x1 * mm, y1 * mm, x2 * mm, y2 * mm)
+
+    def save_to_windowed_envelop_pdf(self, data: pd.DataFrame, target: pathlib.Path | str):
+        print(f'save_to_windowed_envelop_pdf: {target}')
+        max_text_length = 35
+
+        target = pathlib.Path(target)
+        windowed_envelop_pdf = Canvas(filename=str(target), pagesize=A4)
+
+        for row in data.itertuples():
+            index, name, zipcode, address, title, bike_number, due_date = row
+
+            # print(index, name, zipcode, address, title, bike_number, due_date)
+            # 주소
+            self.draw_text_to_pdf(windowed_envelop_pdf, address, 85, 244, max_text_length, 2, "맑은고딕", 10)
+
+            # 이름
+            self.draw_text_to_pdf(windowed_envelop_pdf, name, 85, 230, max_text_length, 2, "맑은고딕-bold", 10)
+
+            # 우편번호
+            character_gap: int = 6
+            for i, z in enumerate(zipcode):
+                self.draw_text_to_pdf(windowed_envelop_pdf, z, 135 + (character_gap * i), 220, max_text_length, 2,
+                                      "맑은고딕", 10)
+
+            # 절취선
+            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 204, A4_width_in_mm, 204)
+            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 110, A4_width_in_mm, 110)
+            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 17, A4_width_in_mm, 17)
+
+            # 테스트
+            windowed_envelop_pdf.rect(85 * mm, 244 * mm, 100 * mm, 200 * mm)
+
+            windowed_envelop_pdf.showPage()  # 한 페이지 앞면 완성
+
+            # 뒷 페이지 perforated line
+            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 204, A4_width_in_mm, 204)
+            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 110, A4_width_in_mm, 110)
+            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 17, A4_width_in_mm, 17)
+
+            windowed_envelop_pdf.showPage()  # 한 페이지 뒷면 완성
+
+        windowed_envelop_pdf.save()  # 전체 pdf 닫기
 
 
 class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
@@ -315,9 +403,9 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
             save_to_save_to_windowed_envelop_pdf_path = directory / '{datetime}_창봉투_주소.pdf'.format(
                 datetime=arrow.now().format('YYYY-MM-DD HHmmss'))
 
-            self.save_to_postmoa_normal_mail_excel(save_to_postmoa_normal_mail_path)
-            self.save_to_postmoa_registered_mail_excel(save_to_postmoa_registered_mail_path)
-            self.save_to_windowed_envelop_pdf(save_to_save_to_windowed_envelop_pdf_path)
+            self.save_to_postmoa_normal_mail_excel(self.data, save_to_postmoa_normal_mail_path)
+            self.save_to_postmoa_registered_mail_excel(self.data, save_to_postmoa_registered_mail_path)
+            self.save_to_windowed_envelop_pdf(self.data, save_to_save_to_windowed_envelop_pdf_path)
 
             self.set_status_bar('data saved to PostMoa xls, pdf')
 
@@ -326,95 +414,6 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
             QMessageBox.critical(self, 'Error', 'table is not converted to postmoa')
             self.set_status_bar('table is not converted to postmoa')
             return
-
-    def save_to_postmoa_normal_mail_excel(self, target: pathlib.Path | str):
-        target = pathlib.Path(target)
-        df_normal_mail = NORMAL_MAIL_EMPTY_DATAFRAME.copy(deep=True)
-        # print(f'update 전 {df_normal_mail}')
-
-        if any(self.data):
-            df_normal_mail['수취인*'] = self.data['이름']
-            df_normal_mail['우편번호*'] = self.data['우편번호']
-            df_normal_mail['기본주소*'] = self.data['주소']
-            df_normal_mail['문서제목'] = self.data['제목']
-            df_normal_mail['비고'] = self.data['제출기한']
-
-            # broadcasting을 사용할 수 있는데
-            # order가 중요함
-            # 규격*을 처음 적용하면 length가 0이라서
-            # broadcasting이 제대로 되지 않음
-            df_normal_mail['규격*'] = '규격'
-            df_normal_mail['중량*'] = '25'
-            df_normal_mail['통수*'] = '1'
-
-            df_normal_mail.to_excel(target, index=False)
-            self.save_to_xls(target)
-
-    def save_to_postmoa_registered_mail_excel(self, target: pathlib.Path | str):
-        target = pathlib.Path(target)
-        df_registered_mail = REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True)
-
-        if any(self.data):
-            df_registered_mail['수취인*'] = self.data['이름']
-            df_registered_mail['우편번호*'] = self.data['우편번호']
-            df_registered_mail['기본주소*'] = self.data['주소']
-            df_registered_mail['문서제목'] = self.data['제목']
-            df_registered_mail['비고'] = self.data['제출기한']
-
-            # broadcasting을 사용할 수 있는데
-            # order가 중요함
-            # 규격*을 처음 적용하면 length가 0이라서
-            # broadcasting이 제대로 되지 않음
-            df_registered_mail['규격*'] = '규격'
-            df_registered_mail['중량'] = '25'
-            df_registered_mail['수수료*'] = '보통'
-            df_registered_mail['환부*'] = '환부불능'
-
-            df_registered_mail.to_excel(target, index=False)
-            self.save_to_xls(target)
-
-    def save_to_windowed_envelop_pdf(self, target: pathlib.Path | str):
-        print(f'save_to_windowed_envelop_pdf: {target}')
-        max_text_length = 35
-
-        target = pathlib.Path(target)
-        windowed_envelop_pdf = Canvas(filename=str(target), pagesize=A4)
-
-        for row in self.data.itertuples():
-            index, name, zipcode, address, title, bike_number, due_date = row
-
-            # print(index, name, zipcode, address, title, bike_number, due_date)
-            # 주소
-            self.draw_text_to_pdf(windowed_envelop_pdf, address, 85, 244, max_text_length, 2, "맑은고딕", 10)
-
-            # 이름
-            self.draw_text_to_pdf(windowed_envelop_pdf, name, 85, 230, max_text_length, 2, "맑은고딕-bold", 10)
-
-            # 우편번호
-            character_gap: int = 6
-            for i, z in enumerate(zipcode):
-                self.draw_text_to_pdf(windowed_envelop_pdf, z, 135 + (character_gap * i), 220, max_text_length, 2,
-                                      "맑은고딕", 10)
-
-            # 절취선
-            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 204, A4_width_in_mm, 204)
-            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 110, A4_width_in_mm, 110)
-            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 17, A4_width_in_mm, 17)
-
-            # 테스트
-            windowed_envelop_pdf.rect(85 * mm, 244 * mm, 100 * mm, 200 * mm)
-
-            windowed_envelop_pdf.showPage()  # 한 페이지 앞면 완성
-
-            # 뒷 페이지 perforated line
-            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 204, A4_width_in_mm, 204)
-            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 110, A4_width_in_mm, 110)
-            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 17, A4_width_in_mm, 17)
-
-            windowed_envelop_pdf.showPage()  # 한 페이지 뒷면 완성
-
-        windowed_envelop_pdf.save()  # 전체 pdf 닫기
-        self.set_status_bar('data saved to windowed envelop pdf')
 
     def open_file_dialog(self):
         files, filter_used = QFileDialog.getOpenFileNames(parent=self,

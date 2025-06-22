@@ -134,6 +134,7 @@ class PdfMixin:
             ret = ''
 
         # print(f'{ret=}')
+        ret = ret.strip().replace('\n', ' ')
         return ret
 
 
@@ -428,8 +429,9 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
         for file in files:
             if file.suffix in ('.pdf',):
                 try:
-                    name, zipcode, address = self.extract_pattern_from_pdf(file, NAME_ZIPCODE_ADDRESS)
-                    address = address.replace('\n', '')  # 가끔 \n이 들어가 있는 경우가 있음
+                    name = self.extract_pattern_from_pdf(file, NAME)
+                    zipcode = self.extract_pattern_from_pdf(file, ZIPCODE)
+                    address = self.extract_pattern_from_pdf(file, ADDRESS)
 
                     title = self.extract_pattern_from_pdf(file, TITLE)
                     title = ''.join(title)

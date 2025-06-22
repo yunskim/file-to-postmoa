@@ -121,7 +121,7 @@ class DataFrameModel(QAbstractTableModel):
 
 class PdfMixin:
     @staticmethod
-    def extract_pattern_from_pdf_to_str(pdf: pathlib.Path | str, pattern: re.Pattern) -> str:
+    def extract_pattern_from_pdf(pdf: pathlib.Path | str, pattern: re.Pattern) -> str:
         pdf = pathlib.Path(pdf).resolve()
         text = ''
 
@@ -129,15 +129,61 @@ class PdfMixin:
             text += page.extract_text()
 
         try:
-            ret = pattern.search(text).groups()  # 일치하는 모든 str
+            ret = pattern.search(text).group(1)  # 첫번째 str
         except AttributeError:
-            ret = ('',)
+            ret = ''
 
         # print(f'{ret=}')
         return ret
 
 
 class ExcelMixin:
+    def save_to_postmoa_normal_mail_excel(self, data: pd.DataFrame, target: pathlib.Path | str):
+        target = pathlib.Path(target)
+        df_normal_mail = NORMAL_MAIL_EMPTY_DATAFRAME.copy(deep=True)
+        # print(f'update 전 {df_normal_mail}')
+
+        if any(data):
+            df_normal_mail['수취인*'] = data['이름']
+            df_normal_mail['우편번호*'] = data['우편번호']
+            df_normal_mail['기본주소*'] = data['주소']
+            df_normal_mail['문서제목'] = data['제목']
+            df_normal_mail['비고'] = data['제출기한']
+
+            # broadcasting을 사용할 수 있는데
+            # order가 중요함
+            # 규격*을 처음 적용하면 length가 0이라서
+            # broadcasting이 제대로 되지 않음
+            df_normal_mail['규격*'] = '규격'
+            df_normal_mail['중량*'] = '25'
+            df_normal_mail['통수*'] = '1'
+
+            df_normal_mail.to_excel(target, index=False)
+            self.save_to_xls(target)
+
+    def save_to_postmoa_registered_mail_excel(self, data: pd.DataFrame, target: pathlib.Path | str):
+        target = pathlib.Path(target)
+        df_registered_mail = REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True)
+
+        if any(data):
+            df_registered_mail['수취인*'] = data['이름']
+            df_registered_mail['우편번호*'] = data['우편번호']
+            df_registered_mail['기본주소*'] = data['주소']
+            df_registered_mail['문서제목'] = data['제목']
+            df_registered_mail['비고'] = data['제출기한']
+
+            # broadcasting을 사용할 수 있는데
+            # order가 중요함
+            # 규격*을 처음 적용하면 length가 0이라서
+            # broadcasting이 제대로 되지 않음
+            df_registered_mail['규격*'] = '규격'
+            df_registered_mail['중량'] = '25'
+            df_registered_mail['수수료*'] = '보통'
+            df_registered_mail['환부*'] = '환부불능'
+
+            df_registered_mail.to_excel(target, index=False)
+            self.save_to_xls(target)
+
     @staticmethod
     def save_to_xls(xlsx: str | pathlib.Path) -> str:
         """
@@ -326,52 +372,6 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
             QMessageBox.critical(self, 'Error', 'table is not converted to postmoa')
             self.set_status_bar('table is not converted to postmoa')
             return
-
-    def save_to_postmoa_normal_mail_excel(self, target: pathlib.Path | str):
-        target = pathlib.Path(target)
-        df_normal_mail = NORMAL_MAIL_EMPTY_DATAFRAME.copy(deep=True)
-        # print(f'update 전 {df_normal_mail}')
-
-        if any(self.data):
-            df_normal_mail['수취인*'] = self.data['이름']
-            df_normal_mail['우편번호*'] = self.data['우편번호']
-            df_normal_mail['기본주소*'] = self.data['주소']
-            df_normal_mail['문서제목'] = self.data['제목']
-            df_normal_mail['비고'] = self.data['제출기한']
-
-            # broadcasting을 사용할 수 있는데
-            # order가 중요함
-            # 규격*을 처음 적용하면 length가 0이라서
-            # broadcasting이 제대로 되지 않음
-            df_normal_mail['규격*'] = '규격'
-            df_normal_mail['중량*'] = '25'
-            df_normal_mail['통수*'] = '1'
-
-            df_normal_mail.to_excel(target, index=False)
-            self.save_to_xls(target)
-
-    def save_to_postmoa_registered_mail_excel(self, target: pathlib.Path | str):
-        target = pathlib.Path(target)
-        df_registered_mail = REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True)
-
-        if any(self.data):
-            df_registered_mail['수취인*'] = self.data['이름']
-            df_registered_mail['우편번호*'] = self.data['우편번호']
-            df_registered_mail['기본주소*'] = self.data['주소']
-            df_registered_mail['문서제목'] = self.data['제목']
-            df_registered_mail['비고'] = self.data['제출기한']
-
-            # broadcasting을 사용할 수 있는데
-            # order가 중요함
-            # 규격*을 처음 적용하면 length가 0이라서
-            # broadcasting이 제대로 되지 않음
-            df_registered_mail['규격*'] = '규격'
-            df_registered_mail['중량'] = '25'
-            df_registered_mail['수수료*'] = '보통'
-            df_registered_mail['환부*'] = '환부불능'
-
-            df_registered_mail.to_excel(target, index=False)
-            self.save_to_xls(target)
 
     def save_to_windowed_envelop_pdf(self, target: pathlib.Path | str):
         print(f'save_to_windowed_envelop_pdf: {target}')

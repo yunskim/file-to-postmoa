@@ -44,7 +44,7 @@ ZIPCODE = re.compile(r'수신\s+.+\s+귀하\s+\(우(\d+)\s+.+\)\n\(경유\)', re
 ADDRESS = re.compile(r'수신\s+.+\s+귀하\s+\(우\d+\s+(.+)\)\n\(경유\)', re.DOTALL)  # 주소
 
 TITLE = re.compile(r'제목\s+(.+)')
-BIKE_NUMBER = re.compile(r'\n(.+)\n(\w)(\d{4})\n')
+BIKE_NUMBER = re.compile(r'(?<=차량번호).+\n(\w+\n?\w\d{4})', re.DOTALL)
 DUE_DATE = re.compile(r'\n(\d+\.\d+\.\d+\.)')
 
 COLUMNS_EN_TO_KR = dict(
@@ -134,7 +134,7 @@ class PdfMixin:
             ret = ''
 
         # print(f'{ret=}')
-        ret = ret.strip().replace('\n', ' ')
+        ret = ret.strip().replace('\n', '')
         return ret
 
 
@@ -272,24 +272,24 @@ class ReportLabMixin:
 
             # print(index, name, zipcode, address, title, bike_number, due_date)
             # 주소
-            self.draw_text_to_pdf(windowed_envelop_pdf, address, 85, 244, max_text_length, 2, "맑은고딕", 10)
+            self.draw_text_to_pdf(windowed_envelop_pdf, address, 85, 247, max_text_length, 2, "맑은고딕", 10)
 
             # 이름
-            self.draw_text_to_pdf(windowed_envelop_pdf, name, 85, 230, max_text_length, 2, "맑은고딕-bold", 10)
+            self.draw_text_to_pdf(windowed_envelop_pdf, name, 85, 233, max_text_length, 2, "맑은고딕-bold", 10)
 
             # 우편번호
             character_gap: int = 6
             for i, z in enumerate(zipcode):
-                self.draw_text_to_pdf(windowed_envelop_pdf, z, 135 + (character_gap * i), 220, max_text_length, 2,
+                self.draw_text_to_pdf(windowed_envelop_pdf, z, 138 + (character_gap * i), 220, max_text_length, 2,
                                       "맑은고딕", 10)
 
             # 절취선
-            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 204, A4_width_in_mm, 204)
-            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 110, A4_width_in_mm, 110)
-            self.draw_line_to_pdf(windowed_envelop_pdf, 0, 17, A4_width_in_mm, 17)
+            # self.draw_line_to_pdf(windowed_envelop_pdf, 0, 204, A4_width_in_mm, 204)
+            # self.draw_line_to_pdf(windowed_envelop_pdf, 0, 110, A4_width_in_mm, 110)
+            # self.draw_line_to_pdf(windowed_envelop_pdf, 0, 17, A4_width_in_mm, 17)
 
             # 테스트
-            windowed_envelop_pdf.rect(85 * mm, 244 * mm, 100 * mm, 200 * mm)
+            # windowed_envelop_pdf.rect(85 * mm, 244 * mm, 100 * mm, 200 * mm)
 
             windowed_envelop_pdf.showPage()  # 한 페이지 앞면 완성
 
@@ -434,12 +434,10 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
                     address = self.extract_pattern_from_pdf(file, ADDRESS)
 
                     title = self.extract_pattern_from_pdf(file, TITLE)
-                    title = ''.join(title)
                     bike_number = self.extract_pattern_from_pdf(file, BIKE_NUMBER)
-                    bike_number = ''.join(bike_number)
                     due_date = self.extract_pattern_from_pdf(file, DUE_DATE)
-                    due_date = ''.join(due_date)
                     df.loc[len(df)] = [name, zipcode, address, title, bike_number, due_date]
+
                 except AttributeError as err:
                     self.set_status_bar(f'file {file} is not converted to postmoa')
                     print(err)

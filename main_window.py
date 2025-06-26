@@ -272,15 +272,15 @@ class ReportLabMixin:
 
             # print(index, name, zipcode, address, title, bike_number, due_date)
             # 주소
-            self.draw_text_to_pdf(windowed_envelop_pdf, address, 85, 247, max_text_length, 2, "맑은고딕", 10)
+            self.draw_text_to_pdf(windowed_envelop_pdf, address, 85, 250, max_text_length, 2, "맑은고딕", 10)
 
             # 이름
-            self.draw_text_to_pdf(windowed_envelop_pdf, name, 85, 233, max_text_length, 2, "맑은고딕-bold", 10)
+            self.draw_text_to_pdf(windowed_envelop_pdf, name, 85, 236, max_text_length, 2, "맑은고딕-bold", 10)
 
             # 우편번호
             character_gap: int = 6
             for i, z in enumerate(zipcode):
-                self.draw_text_to_pdf(windowed_envelop_pdf, z, 138 + (character_gap * i), 220, max_text_length, 2,
+                self.draw_text_to_pdf(windowed_envelop_pdf, z, 141 + (character_gap * i), 220, max_text_length, 2,
                                       "맑은고딕", 10)
 
             # 절취선

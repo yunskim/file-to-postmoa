@@ -247,6 +247,37 @@ class ReportLabMixin:
             canvas.drawString(row_horizontal_offset_in_pt, row_vertical_offset_in_pt, row)
 
     @staticmethod
+    def draw_text_body_to_pdf(canvas: Canvas,
+                              text: str,
+                              horizontal_offset: int,
+                              vertical_offset: int,
+                              max_text_length: int,
+                              row_gap: int,
+                              font: str,
+                              font_size: int):
+        """
+        body에는 다른 textwrap을 적용함
+
+        :param canvas: 추가할 pdf canvas object
+        :param text: 추가할 str
+        :param horizontal_offset: text box의 left coordinate(from left to right) in mm
+        :param vertical_offset: text box의 top coordinate(from bottom to top) in mm
+        :param max_text_length: 한 줄에 출력할 수 있는 글자 수
+        :param row_gap: 줄 사이 간격 in mm
+        :param font: pdfmetrics.registerFont로 추가된 폰트의 str
+        :param font_size: 폰트 크기 in pt
+        :return:
+        """
+        canvas.setFont(font, font_size)
+        wrapped_text_rows = textwrap.fill(text, max_text_length)
+
+        for i, row in enumerate(wrapped_text_rows.splitlines()):
+            row_horizontal_offset_in_pt = horizontal_offset * mm
+            row_vertical_offset_in_pt = (vertical_offset * mm) - (font_size + (row_gap * mm)) * i
+
+            canvas.drawString(row_horizontal_offset_in_pt, row_vertical_offset_in_pt, row)
+
+    @staticmethod
     def draw_line_to_pdf(canvas: Canvas,
                          x1: int, y1: int, x2: int, y2: int):
         """
@@ -280,7 +311,7 @@ class ReportLabMixin:
             # 우편번호
             character_gap: int = 6
             for i, z in enumerate(zipcode):
-                self.draw_text_to_pdf(windowed_envelop_pdf, z, 141 + (character_gap * i), 220, max_text_length, 2,
+                self.draw_text_to_pdf(windowed_envelop_pdf, z, 141 + (character_gap * i), 225, max_text_length, 2,
                                       "맑은고딕", 10)
 
             # 절취선

@@ -4,9 +4,10 @@ import re
 import io
 
 import pywintypes
-from PyQt6.QtGui import QIcon, QAction, QColor
-from PyQt6.QtWidgets import QMainWindow, QApplication, QTableView, QFileDialog, QMessageBox
+from PyQt6.QtGui import QIcon, QAction, QColor, QContextMenuEvent
+from PyQt6.QtWidgets import QMainWindow, QApplication, QTableView, QFileDialog, QMessageBox, QMenu
 from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PyQt6 import QtCore
 
 import pathlib
 import pandas as pd
@@ -344,6 +345,7 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
 
         # 파일에서 주소를 추출해 보여주는 table을 central widget으로 설정함
         self.table = QTableView()
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.DefaultContextMenu)
 
         self.setCentralWidget(self.table)
 
@@ -390,6 +392,14 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
         self.set_status_bar('Ready')
 
         self.reset_table()
+
+    def contextMenuEvent(self, event: QContextMenuEvent):
+        context_menu = QMenu(self)
+        action1 = context_menu.addAction('Open')
+        action2 = context_menu.addAction('Save')
+        action3 = context_menu.addAction('Clear')
+
+        action = context_menu.exec(self.mapToGlobal(event.pos()))
 
     def set_status_bar(self, text: str):
         self.statusBar().showMessage(text)

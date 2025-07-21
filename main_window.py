@@ -432,9 +432,20 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
 
     def delete_row(self, index):
         print(f'delete_row() called. index: {index}, row: {index.row()}, column: {index.column()}')
+        print(f'records: {self.data.to_dict('records')}')
+
+        records = self.data.to_dict('records')
+        del records[index.row()]
+
+        self.data = pd.DataFrame.from_records(records)
+        self.reset_table()
 
     def clear_row(self, index):
         print(f'clear_row() called. index: {index}, row: {index.row()}, column: {index.column()}')
+        records = self.data.to_dict('records')
+        records[index.row()] = {column: '' for column in self.data.columns}
+        self.data = pd.DataFrame.from_records(records)
+        self.reset_table()
 
     def set_status_bar(self, text: str):
         self.statusBar().showMessage(text)

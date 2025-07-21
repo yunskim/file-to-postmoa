@@ -468,7 +468,7 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
     def append_data_to_table(self, df: pd.DataFrame):
         try:
             self.data = pd.concat([self.data, df],
-                                  axis=0)
+                                  axis=0, ignore_index=True)
             self.data.reset_index()
 
         except AttributeError as err:

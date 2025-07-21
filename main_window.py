@@ -109,7 +109,7 @@ class DataFrameModel(QAbstractTableModel):
             if orientation == Qt.Orientation.Horizontal:
                 ret = str(self._data.columns[section])
             if orientation == Qt.Orientation.Vertical:
-                ret = str(self._data.index[section])
+                ret = str(self._data.index[section] + 1)
 
         return ret
 
@@ -394,12 +394,47 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
         self.reset_table()
 
     def contextMenuEvent(self, event: QContextMenuEvent):
-        context_menu = QMenu(self)
-        action1 = context_menu.addAction('Open')
-        action2 = context_menu.addAction('Save')
-        action3 = context_menu.addAction('Clear')
+        """
+        contextMenuEvent()는 default context menu event handler!!
 
+        # https://freeprog.tistory.com/334
+
+        ContextMenuPolicy를 사용하는 3가지 방법
+        1) DefaultContextMenu
+        2) ActionsContextMenu
+        3)CustomContextMenu
+
+        :param event:
+        :return:
+        """
+        context_menu = QMenu(self)
+        add_row_action = context_menu.addAction('Add row')
+        delete_row_action = context_menu.addAction('Delete row')
+        clear_row_action = context_menu.addAction('Clear row')
+
+        index = self.table.indexAt(event.pos())
+        # print(f'{index.row()=}, {index.column()=}')
         action = context_menu.exec(self.mapToGlobal(event.pos()))
+        if action == add_row_action:
+            self.add_row()
+        if action == delete_row_action:
+            self.delete_row(index)
+        if action == clear_row_action:
+            self.clear_row(index)
+
+    def add_row(self):
+        # print(f'add_row() called: {self.data}')
+        # print(f'add_row() called: {len(self.data)}')
+        records = self.data.to_dict('records')
+        records.append({column: '' for column in self.data.columns})
+        self.data = pd.DataFrame.from_records(records)
+        self.reset_table()
+
+    def delete_row(self, index):
+        print(f'delete_row() called. index: {index}, row: {index.row()}, column: {index.column()}')
+
+    def clear_row(self, index):
+        print(f'clear_row() called. index: {index}, row: {index.row()}, column: {index.column()}')
 
     def set_status_bar(self, text: str):
         self.statusBar().showMessage(text)

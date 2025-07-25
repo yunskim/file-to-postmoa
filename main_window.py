@@ -409,22 +409,29 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
         """
         context_menu = QMenu(self)
         add_row_action = context_menu.addAction('Add row')
+        add_row_below_action = context_menu.addAction('Add row below')
         delete_row_action = context_menu.addAction('Delete row')
         clear_row_action = context_menu.addAction('Clear row')
 
-        index = self.table.indexAt(event.pos())
-        # print(f'{index.row()=}, {index.column()=}')
         action = context_menu.exec(self.mapToGlobal(event.pos()))
+
         if action == add_row_action:
             self.add_row()
+        if action == add_row_below_action:
+            self.add_row_below(self.table.indexAt(event.pos()))
         if action == delete_row_action:
-            self.delete_row(index)
+            self.delete_row(self.table.indexAt(event.pos()))
         if action == clear_row_action:
-            self.clear_row(index)
+            self.clear_row(self.table.indexAt(event.pos()))
 
     def add_row(self):
-        # print(f'add_row() called: {self.data}')
-        # print(f'add_row() called: {len(self.data)}')
+        records = self.data.to_dict('records')
+        records.append({column: '' for column in self.data.columns})
+        self.data = pd.DataFrame.from_records(records)
+        self.reset_table()
+
+    def add_row_below(self, index):
+        # print(f'{index.row()=}, {index.column()=}')
         records = self.data.to_dict('records')
         records.append({column: '' for column in self.data.columns})
         self.data = pd.DataFrame.from_records(records)
@@ -432,13 +439,14 @@ class MainWindow(QMainWindow, ReportLabMixin, ExcelMixin, PdfMixin):
 
     def delete_row(self, index):
         print(f'delete_row() called. index: {index}, row: {index.row()}, column: {index.column()}')
-        print(f'records: {self.data.to_dict('records')}')
+        # print(f'records before deletion: {self.data.to_dict('records')}')
 
         records = self.data.to_dict('records')
         del records[index.row()]
 
         self.data = pd.DataFrame.from_records(records)
         self.reset_table()
+        # print(f'records after deletion: {self.data.to_dict('records')}')
 
     def clear_row(self, index):
         print(f'clear_row() called. index: {index}, row: {index.row()}, column: {index.column()}')

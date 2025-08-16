@@ -46,6 +46,20 @@ PDF_EMPTY_DATAFRAME = pd.DataFrame(
     columns=['이름', '우편번호', '주소', '제목', '차량번호', '비고'])
 
 
+class BodyWrapper(textwrap.TextWrapper):
+
+    def wrap(self, text: str) -> list[str]:
+        paragraphs = text.split('\n')
+        lines = []
+        for paragraph in paragraphs:
+            if paragraph:  # non-empty 라면
+                lines.extend(super().wrap(paragraph))
+            else:  # empty라면 == '\n'만 입력된 line 이라면
+                lines.append('')  # extend를 하면 아무 것도 추가되지 않음
+
+        return lines
+
+
 class ColumnReplacer:
     def __init__(self,
                  target_df_column: str,
@@ -73,14 +87,14 @@ class ColumnReplacer:
         if self.replacer:
             replacing_data_df_columns = re.findall(r'{(\w+)}',
                                                    self.replacer)  # data_df의 column이름, replacer에서 sub할 data_df의 column names
-            print(f'{replacing_data_df_columns=}')
+            # print(f'{replacing_data_df_columns=}')
 
             replaced = [self.replacer for _ in
                         range(len(data_df))]  # target_df_column 하나에 data_df의 여러 columns이 결합될 수 있음. placeholder를 생성함
 
             if replacing_data_df_columns:
                 for replacing_data_df_column in replacing_data_df_columns:
-                    print(f'{replacing_data_df_column=}')
+                    # print(f'{replacing_data_df_column=}')
                     for i, (_new, r) in enumerate(zip(data_df[replacing_data_df_column], replaced)):
                         if _new:
                             # data_df가 비어있지 않으면 replace
@@ -101,7 +115,7 @@ PDF_TO_POSTMOA_NORMAL_MAIL_EXCEL_COLUMNS: Sequence[ColumnReplacer] = (
     ColumnReplacer('우편번호*', '{우편번호}'),
     ColumnReplacer('기본주소*', '{주소}'),
     ColumnReplacer('문서제목', '{제목}'),
-    ColumnReplacer('비고', '{차량번호}, {비고}'),
+    ColumnReplacer('비고', '{차량번호}, {비고}까지'),
     ColumnReplacer('규격*', '규격'),
     ColumnReplacer('통수*', '1'),
     ColumnReplacer('중량*', '25'),
@@ -111,7 +125,7 @@ PDF_TO_POSTMOA_REGISTERED_MAIL_EXCEL_COLUMNS: Sequence[ColumnReplacer] = (
     ColumnReplacer('우편번호*', '{우편번호}'),
     ColumnReplacer('기본주소*', '{주소}'),
     ColumnReplacer('문서제목', '{제목}'),
-    ColumnReplacer('비고', '{차량번호}, {비고}'),
+    ColumnReplacer('비고', '{차량번호}, {비고}까지'),
     ColumnReplacer('규격*', '규격'),
     ColumnReplacer('중량', '25'),
     ColumnReplacer('수수료*', '보통'),
@@ -125,15 +139,15 @@ PDF_TO_POSTMOA_SELECTIVE_REGISTERED_MAIL_EXCEL_COLUMNS: Sequence[ColumnReplacer]
     ColumnReplacer('우편번호*', '{우편번호}'),
     ColumnReplacer('기본주소*', '{주소}'),
     ColumnReplacer('문서제목', '{제목}'),
-    ColumnReplacer('비고', '{차량번호}, {비고}'),
+    ColumnReplacer('비고', '{차량번호}, {비고}까지'),
 )
 # pdf_df를 windowed_envelope_df로 변환하는 mappings
 PDF_TO_WINDOWED_ENVELOPE_COLUMNS: Sequence[ColumnReplacer] = (
-    ColumnReplacer('문서제목', '{제목}'),
+    ColumnReplacer('제목', '{제목}'),
     ColumnReplacer('우편번호', '{우편번호}'),
-    ColumnReplacer('기본주소', '{주소}'),
-    ColumnReplacer('수취인', '{이름}'),
-    ColumnReplacer('문서본문', '{차량번호}, {비고}'),
+    ColumnReplacer('주소', '{주소}'),
+    ColumnReplacer('이름', '{이름}'),
+    ColumnReplacer('비고', '{차량번호}, {비고}까지'),
 )
 
 NAME = re.compile(r'수신\s+(.+)(?=\s+귀하\s+\(우\d+\s+.+\)\n\(경유\))', re.DOTALL)  # 이름
@@ -256,6 +270,15 @@ class MainWindow(QMainWindow):
         open_file_action.triggered.connect(self.open_file_dialog)
 
         file_menu.addAction(open_file_action)
+
+        ## save to postmoa action 추가
+        save_to_postmoa_action = QAction('Save to Postmoa Excel', self)
+        file_menu.addAction(save_to_postmoa_action)
+
+        save_to_postmoa_action.setShortcut('Ctrl+P')
+        save_to_postmoa_action.setStatusTip('Save to PostMoa Excel')
+        save_to_postmoa_action.triggered.connect(self.save_to_postmoa_dialog)
+
         # status bar
         self.set_status_bar('Ready')
 
@@ -333,6 +356,207 @@ class MainWindow(QMainWindow):
             case _:
                 pass
 
+    def save_to_postmoa_dialog(self):
+        directory = QFileDialog.getExistingDirectory(self, 'Save PostMoa Directory',
+                                                     directory=r'c:\Users\User\Desktop\작업용 임시 폴더',
+                                                     options=QFileDialog.Option.ShowDirsOnly)
+
+        directory = pathlib.Path(directory)
+        save_to_postmoa_normal_mail_path = directory / '{datetime}_일반우편.xls'.format(
+            datetime=arrow.now().format('YYYY-MM-DD HHmmss'))
+        save_to_postmoa_registered_mail_path = directory / '{datetime}_등기우편.xls'.format(
+            datetime=arrow.now().format('YYYY-MM-DD HHmmss'))
+        save_to_postmoa_selective_registered_mail_path = directory / '{datetime}_선택등기우편.xls'.format(
+            datetime=arrow.now().format('YYYY-MM-DD HHmmss'))
+        save_to_windowed_envelop_pdf_path = directory / '{datetime}_창봉투_주소.pdf'.format(
+            datetime=arrow.now().format('YYYY-MM-DD HHmmss'))
+
+        self.save_to_postmoa_excel(save_to_postmoa_normal_mail_path, PDF_TO_POSTMOA_NORMAL_MAIL_EXCEL_COLUMNS,
+                                   NORMAL_MAIL_EMPTY_DATAFRAME.copy(deep=True))
+        self.save_to_postmoa_excel(save_to_postmoa_registered_mail_path, PDF_TO_POSTMOA_REGISTERED_MAIL_EXCEL_COLUMNS,
+                                   REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True))
+        self.save_to_postmoa_excel(save_to_postmoa_selective_registered_mail_path,
+                                   PDF_TO_POSTMOA_SELECTIVE_REGISTERED_MAIL_EXCEL_COLUMNS,
+                                   SELECTIVE_REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True))
+
+        self.save_to_windowed_envelope_order_address_only_pdf(save_to_windowed_envelop_pdf_path,
+                                                              PDF_TO_WINDOWED_ENVELOPE_COLUMNS,
+                                                              PDF_EMPTY_DATAFRAME.copy(deep=True))
+
+    def save_to_postmoa_excel(self, target: pathlib.Path | str, columns: Sequence[ColumnReplacer],
+                              target_df: pd.DataFrame):
+        if any(self.data):
+            # replacer가 있으면 replacer가 적용된 text 입력
+            for column in columns:
+                if column.replacer:
+                    column.replace(target_df, self.data)
+
+            target_df.to_excel(target, index=False)
+            self.save_to_xls(target)
+
+    @staticmethod
+    def save_to_xls(xlsx: str | pathlib.Path) -> str:
+        """
+        df.to_excel()이 xlsx만 지원해서
+        일단 xlsx로 저장하고 xls로 다시 바꾸는 method를 작성함
+
+        :param xlsx:
+        :return:
+        """
+        if isinstance(xlsx, str):
+            xlsx = pathlib.Path(xlsx)
+
+        excel_app = win32.gencache.EnsureDispatch('Excel.Application')
+        wb = excel_app.Workbooks.Open(xlsx)
+
+        xls = xlsx.with_suffix('.xls')
+        xls = str(xls)
+
+        # https://stackoverflow.com/questions/42182126/suppress-save-as-prompt
+        excel_app.DisplayAlerts = False
+
+        wb.SaveAs(xls, FileFormat=56)  # 56은 .xls
+        wb.Close()
+        # excel_app.Quit()
+
+        excel_app.DisplayAlerts = True
+
+        return xls
+
+    # 여기부터 reportlab 관련 methods
+    @staticmethod
+    def draw_text_to_pdf(canvas: Canvas,
+                         text: str,
+                         horizontal_offset: int,
+                         vertical_offset: int,
+                         max_text_length: int,
+                         row_gap: int,
+                         font: str,
+                         font_size: int, ):
+        """
+
+        :param canvas: 추가할 pdf canvas object
+        :param text: 추가할 str
+        :param horizontal_offset: text box의 left coordinate(from left to right) in mm
+        :param vertical_offset: text box의 top coordinate(from bottom to top) in mm
+        :param max_text_length: 한 줄에 출력할 수 있는 글자 수
+        :param row_gap: 줄 사이 간격 in mm
+        :param font: pdfmetrics.registerFont로 추가된 폰트의 str
+        :param font_size: 폰트 크기 in pt
+        :return:
+        """
+        canvas.setFont(font, font_size)
+
+        # "\n".join(wrap(text, ...)) == textwrap.fill(text,...)
+        wrapped_text_rows = textwrap.wrap(str(text), max_text_length)
+        print(wrapped_text_rows)
+
+        for i, row in enumerate(wrapped_text_rows):
+            row_horizontal_offset_in_pt = horizontal_offset * mm
+            row_vertical_offset_in_pt = (vertical_offset * mm) - (font_size + (row_gap * mm)) * i
+
+            canvas.drawString(row_horizontal_offset_in_pt, row_vertical_offset_in_pt, row)
+
+    @staticmethod
+    def draw_text_body_to_pdf(canvas: Canvas,
+                              text: str,
+                              horizontal_offset: int,
+                              vertical_offset: int,
+                              max_text_length: int,
+                              row_gap: int,
+                              font: str,
+                              font_size: int, ):
+        """
+        body에 다른 textwrap을 적용함
+
+        :param canvas: 추가할 pdf canvas object
+        :param text: 추가할 str
+        :param horizontal_offset: text box의 left coordinate(from left to right) in mm
+        :param vertical_offset: text box의 top coordinate(from bottom to top) in mm
+        :param max_text_length: 한 줄에 출력할 수 있는 글자 수
+        :param row_gap: 줄 사이 간격 in mm
+        :param font: pdfmetrics.registerFont로 추가된 폰트의 str
+        :param font_size: 폰트 크기 in pt
+        :return:
+        """
+        canvas.setFont(font, font_size)
+
+        # "\n".join(wrap(text, ...)) == textwrap.fill(text,...)
+        body_wrapper = BodyWrapper(width=max_text_length, replace_whitespace=False)
+        body_wrapped = body_wrapper.wrap(text=text)
+        print(body_wrapped)
+
+        for i, row in enumerate(body_wrapped):
+            row_horizontal_offset_in_pt = horizontal_offset * mm
+            row_vertical_offset_in_pt = (vertical_offset * mm) - (font_size + (row_gap * mm)) * i
+
+            canvas.drawString(row_horizontal_offset_in_pt, row_vertical_offset_in_pt, row)
+
+    @staticmethod
+    def draw_line_to_pdf(canvas: Canvas,
+                         x1: int, y1: int, x2: int, y2: int):
+        """
+        (x1, y1)에서 (x2, y2)까지 line 그리기
+        :param canvas:
+        :param x1: in mm
+        :param y1: in mm
+        :param x2: in mm
+        :param y2: in mm
+        :return:
+        """
+        canvas.line(x1 * mm, y1 * mm, x2 * mm, y2 * mm)
+
+    def save_to_windowed_envelope_order_address_only_pdf(self, target: pathlib.Path | str,
+                                                         columns: Sequence[ColumnReplacer],
+                                                         target_df: pd.DataFrame):
+        print(f'save_to_windowed_envelope_order_pdf: {target}')
+
+        max_text_length = 35
+        max_body_text_length = 42
+
+        if any(self.data):
+            # replacer가 있으면 replacer가 적용된 text 입력
+            for column in columns:
+                if column.replacer:
+                    column.replace(target_df, self.data)
+
+        target = pathlib.Path(target)
+        windowed_envelope_pdf = Canvas(filename=str(target), pagesize=A4)
+
+        for record in target_df.to_dict('records'):
+
+            name = record.get('이름', '')
+            zipcode = record.get('우편번호', '')
+            address = record.get('주소', '')
+            title = record.get('제목', '')
+            bike_number = record.get('차량번호', '')
+            info = record.get('비고', '')
+
+            # 주소
+            self.draw_text_to_pdf(windowed_envelope_pdf, address, 85, 244, max_text_length, 2, "맑은고딕", 10)
+
+            # 이름
+            self.draw_text_to_pdf(windowed_envelope_pdf, name, 85, 230, max_text_length, 2, "맑은고딕-bold", 10)
+
+            # 우편번호
+            character_gap: int = 6
+            for i, z in enumerate(zipcode):
+                self.draw_text_to_pdf(windowed_envelope_pdf, z, 135 + (character_gap * i), 225, max_text_length, 2,
+                                      "맑은고딕", 10)
+
+            windowed_envelope_pdf.showPage()  # 한 페이지 앞면 완성
+
+            # 뒷 페이지 perforated line
+            self.draw_line_to_pdf(windowed_envelope_pdf, 0, 204, A4_width_in_mm, 204)
+            self.draw_line_to_pdf(windowed_envelope_pdf, 0, 110, A4_width_in_mm, 110)
+            self.draw_line_to_pdf(windowed_envelope_pdf, 0, 17, A4_width_in_mm, 17)
+
+            windowed_envelope_pdf.showPage()  # 한 페이지 뒷면 완성
+
+        windowed_envelope_pdf.save()  # 전체 pdf 닫기
+
+
+# reportlab method 끝
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

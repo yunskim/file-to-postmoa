@@ -1,5 +1,5 @@
-from PyQt6.QtGui import QIcon, QAction, QColor
-from PyQt6.QtWidgets import QMainWindow, QApplication, QMessageBox, QTableView, QFileDialog, QWidget
+from PyQt6.QtGui import QIcon, QAction, QColor, QContextMenuEvent
+from PyQt6.QtWidgets import QMainWindow, QApplication, QMessageBox, QTableView, QFileDialog, QWidget, QMenu
 from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt, QDate
 
 import pathlib
@@ -555,8 +555,43 @@ class MainWindow(QMainWindow):
 
         windowed_envelope_pdf.save()  # 전체 pdf 닫기
 
+    # reportlab method 끝
 
-# reportlab method 끝
+    # context menu 관련 methods 시작
+    def contextMenuEvent(self, event: QContextMenuEvent):
+        """
+        contextMenuEvent()는 default context menu event handler!!
+
+        # https://freeprog.tistory.com/334
+
+        ContextMenuPolicy를 사용하는 3가지 방법
+        1) DefaultContextMenu
+        2) ActionsContextMenu
+        3)CustomContextMenu
+
+        :param event:
+        :return:
+        """
+        context_menu = QMenu(self)
+        add_row_action = context_menu.addAction('Add row')
+
+        index = self.table.indexAt(event.pos())
+        # print(f'{index.row()=}, {index.column()=}')
+
+        self.set_status_bar(f'context menu called: ({index.row()}, {index.column()})')
+
+        action = context_menu.exec(self.mapToGlobal(event.pos()))
+        if action == add_row_action:
+            self.add_row()
+
+    def add_row(self):
+        records = self.data.to_dict('records')
+        records.append({column: '' for column in self.data.columns})
+        self.data = pd.DataFrame.from_records(records)
+        self.reset_table()
+
+    # context menu 관련 methods 끝
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

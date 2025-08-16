@@ -1,3 +1,5 @@
+import configparser
+
 from PyQt6.QtGui import QIcon, QAction, QColor, QContextMenuEvent
 from PyQt6.QtWidgets import QMainWindow, QApplication, QMessageBox, QTableView, QFileDialog, QWidget, QMenu
 from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt, QDate
@@ -19,6 +21,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from collections.abc import Sequence
 from typing import Callable, Any
 from pypdf import PdfReader
+import xlwings as xw
 
 pdfmetrics.registerFont(TTFont("맑은고딕", "malgun.ttf"))
 pdfmetrics.registerFont(TTFont("맑은고딕-bold", "malgunbd.ttf"))
@@ -150,6 +153,45 @@ PDF_TO_WINDOWED_ENVELOPE_COLUMNS: Sequence[ColumnReplacer] = (
     ColumnReplacer('비고', '{차량번호}, {비고}까지'),
 )
 
+# enis_df를 우편모아 df로 변환하는 mappings
+ENIS_TO_POSTMOA_NORMAL_MAIL_EXCEL_COLUMNS: Sequence[ColumnReplacer] = (
+    ColumnReplacer('수취인*', '{납부자명}'),
+    ColumnReplacer('우편번호*', '{납부자우편번호}'),
+    ColumnReplacer('기본주소*', '{납부자주소}'),
+    ColumnReplacer('비고', '{위반항목}, {차량번호}'),
+    ColumnReplacer('규격*', '규격'),
+    ColumnReplacer('통수*', '1'),
+    ColumnReplacer('중량*', '25'),
+)
+ENIS_TO_POSTMOA_REGISTERED_MAIL_EXCEL_COLUMNS: Sequence[ColumnReplacer] = (
+    ColumnReplacer('수취인*', '{납부자명}'),
+    ColumnReplacer('우편번호*', '{납부자우편번호}'),
+    ColumnReplacer('기본주소*', '{납부자주소}'),
+    ColumnReplacer('비고', '{위반항목}, {차량번호}'),
+    ColumnReplacer('규격*', '규격'),
+    ColumnReplacer('중량', '25'),
+    ColumnReplacer('수수료*', '보통'),
+    ColumnReplacer('환부*', '환부불능'),
+)
+ENIS_TO_POSTMOA_SELECTIVE_REGISTERED_MAIL_EXCEL_COLUMNS: Sequence[ColumnReplacer] = (
+    ColumnReplacer('수수료*', '보통'),
+    ColumnReplacer('규격*', '규격'),
+    ColumnReplacer('중량', '25'),
+    ColumnReplacer('수취인*', '{납부자명}'),
+    ColumnReplacer('우편번호*', '{납부자우편번호}'),
+    ColumnReplacer('기본주소*', '{납부자주소}'),
+    ColumnReplacer('비고', '{위반항목}, {차량번호}'),
+)
+
+# enis_df를 windowed_envelope_df로 변환하는 mappings
+ENIS_TO_WINDOWED_ENVELOPE_COLUMNS: Sequence[ColumnReplacer] = (
+    ColumnReplacer('제목', ''),
+    ColumnReplacer('우편번호', '{납부자우편번호}'),
+    ColumnReplacer('주소', '{납부자주소}'),
+    ColumnReplacer('이름', '{납부자명}'),
+    ColumnReplacer('비고', '{위반항목}, {차량번호}'),
+)
+
 NAME = re.compile(r'수신\s+(.+)(?=\s+귀하\s+\(우\d+\s+.+\)\n\(경유\))', re.DOTALL)  # 이름
 ZIPCODE = re.compile(r'수신\s+.+\s+귀하\s+\(우(\d+)\s+.+\)\n\(경유\)', re.DOTALL)  # zipcode
 ADDRESS = re.compile(r'수신\s+.+\s+귀하\s+\(우\d+\s+(.+)\)\n\(경유\)', re.DOTALL)  # 주소
@@ -177,6 +219,31 @@ def extract_pattern_from_pdf(pdf: pathlib.Path | str, pattern: re.Pattern) -> st
 
 def yyyymmdd_to_yyyy_mm_dd(date: str) -> str:
     return str(arrow.get(date, 'YYYYMMDD').format('YYYY-MM-DD'))
+
+
+class Config:
+    def __init__(self, excel_left_top_cell='', excel_type='', mail_must_be_not_na='', kakaotalk_must_be_not_na=''):
+        self.excel_left_top_cell = excel_left_top_cell
+        self.excel_type = excel_type
+        self.mail_must_be_not_na = mail_must_be_not_na
+        self.kakaotalk_must_be_not_na = kakaotalk_must_be_not_na
+
+    def mail_must_be_not_na_columns(self) -> list[Any]:
+        return self.mail_must_be_not_na.strip().replace(' ', '').split(',')
+
+    def kakaotalk_must_be_not_na_columns(self) -> list[Any]:
+        return self.kakaotalk_must_be_not_na.strip().replace(' ', '').split(',')
+
+
+# 세외수입 config
+ENIS_CONFIG = Config(
+    excel_left_top_cell='$A$1',
+    excel_type='enis',
+)
+
+PDF_CONFIG = Config(
+    excel_type='pdf',
+)
 
 
 class DataFrameModel(QAbstractTableModel):
@@ -330,6 +397,25 @@ class MainWindow(QMainWindow):
         else:
             event.ignore()
 
+    @staticmethod
+    def convert_drm_excel_to_df(excel: pathlib.Path | str, config: Any) -> pd.DataFrame:
+        excel = pathlib.Path(excel)
+
+        with xw.App(visible=False) as app:
+            wb = app.books.open(excel)
+            sheet = wb.sheets[0]
+
+            # https://docs.xlwings.org/en/stable/converters.html#converters-and-options
+            df = sheet.range(config.excel_left_top_cell, sheet.used_range.last_cell).options(pd.DataFrame,
+                                                                                             header=True,
+                                                                                             index=False, ).value
+            df.rename(columns=lambda col: col.replace('\n', '').replace(' ', '').replace('/', ''), inplace=True)
+
+            wb.close()
+
+        # print(f'convert_drm_excel_to_df called: {df=}')
+        return df
+
     def open_file_dialog(self):
         file, filter_used = QFileDialog.getOpenFileName(parent=self,
                                                         caption='open file',
@@ -350,9 +436,13 @@ class MainWindow(QMainWindow):
 
                 self.data.loc[len(self.data)] = [name, zipcode, address, title, bike_number, due_date]
                 self.reset_table()
+                self.config = PDF_CONFIG
 
             case '.xlsx' | '.xls':
-                print(f'{file=}')
+                self.data = self.convert_drm_excel_to_df(file, ENIS_CONFIG)
+                self.reset_table()
+                self.config = ENIS_CONFIG
+
             case _:
                 pass
 
@@ -371,20 +461,38 @@ class MainWindow(QMainWindow):
         save_to_windowed_envelop_pdf_path = directory / '{datetime}_창봉투_주소.pdf'.format(
             datetime=arrow.now().format('YYYY-MM-DD HHmmss'))
 
-        self.save_to_postmoa_excel(save_to_postmoa_normal_mail_path, PDF_TO_POSTMOA_NORMAL_MAIL_EXCEL_COLUMNS,
-                                   NORMAL_MAIL_EMPTY_DATAFRAME.copy(deep=True))
-        self.save_to_postmoa_excel(save_to_postmoa_registered_mail_path, PDF_TO_POSTMOA_REGISTERED_MAIL_EXCEL_COLUMNS,
-                                   REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True))
-        self.save_to_postmoa_excel(save_to_postmoa_selective_registered_mail_path,
-                                   PDF_TO_POSTMOA_SELECTIVE_REGISTERED_MAIL_EXCEL_COLUMNS,
-                                   SELECTIVE_REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True))
+        match self.config.excel_type:
+            case 'pdf':
+                self.save_to_postmoa_excel(save_to_postmoa_normal_mail_path,
+                                           NORMAL_MAIL_EMPTY_DATAFRAME.copy(deep=True),
+                                           PDF_TO_POSTMOA_NORMAL_MAIL_EXCEL_COLUMNS)
+                self.save_to_postmoa_excel(save_to_postmoa_registered_mail_path,
+                                           REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True),
+                                           PDF_TO_POSTMOA_REGISTERED_MAIL_EXCEL_COLUMNS)
+                self.save_to_postmoa_excel(save_to_postmoa_selective_registered_mail_path,
+                                           SELECTIVE_REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True),
+                                           PDF_TO_POSTMOA_SELECTIVE_REGISTERED_MAIL_EXCEL_COLUMNS)
+                self.save_to_windowed_envelope_order_address_only_pdf(save_to_windowed_envelop_pdf_path,
+                                                                      PDF_EMPTY_DATAFRAME.copy(deep=True),
+                                                                      PDF_TO_WINDOWED_ENVELOPE_COLUMNS)
 
-        self.save_to_windowed_envelope_order_address_only_pdf(save_to_windowed_envelop_pdf_path,
-                                                              PDF_TO_WINDOWED_ENVELOPE_COLUMNS,
-                                                              PDF_EMPTY_DATAFRAME.copy(deep=True))
+            case 'enis':
+                self.save_to_postmoa_excel(save_to_postmoa_normal_mail_path,
+                                           NORMAL_MAIL_EMPTY_DATAFRAME.copy(deep=True),
+                                           ENIS_TO_POSTMOA_NORMAL_MAIL_EXCEL_COLUMNS)
+                self.save_to_postmoa_excel(save_to_postmoa_registered_mail_path,
+                                           REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True).copy(deep=True),
+                                           ENIS_TO_POSTMOA_REGISTERED_MAIL_EXCEL_COLUMNS)
+                self.save_to_postmoa_excel(save_to_postmoa_selective_registered_mail_path,
+                                           SELECTIVE_REGISTERED_MAIL_EMPTY_DATAFRAME.copy(deep=True),
+                                           ENIS_TO_POSTMOA_SELECTIVE_REGISTERED_MAIL_EXCEL_COLUMNS)
 
-    def save_to_postmoa_excel(self, target: pathlib.Path | str, columns: Sequence[ColumnReplacer],
-                              target_df: pd.DataFrame):
+                self.save_to_windowed_envelope_order_address_only_pdf(save_to_windowed_envelop_pdf_path,
+                                                                      PDF_EMPTY_DATAFRAME.copy(deep=True),
+                                                                      ENIS_TO_WINDOWED_ENVELOPE_COLUMNS)
+
+    def save_to_postmoa_excel(self, target: pathlib.Path | str, target_df: pd.DataFrame,
+                              columns: Sequence[ColumnReplacer]):
         if any(self.data):
             # replacer가 있으면 replacer가 적용된 text 입력
             for column in columns:
@@ -507,8 +615,8 @@ class MainWindow(QMainWindow):
         canvas.line(x1 * mm, y1 * mm, x2 * mm, y2 * mm)
 
     def save_to_windowed_envelope_order_address_only_pdf(self, target: pathlib.Path | str,
-                                                         columns: Sequence[ColumnReplacer],
-                                                         target_df: pd.DataFrame):
+                                                         target_df: pd.DataFrame,
+                                                         columns: Sequence[ColumnReplacer]):
         print(f'save_to_windowed_envelope_order_pdf: {target}')
 
         max_text_length = 35
